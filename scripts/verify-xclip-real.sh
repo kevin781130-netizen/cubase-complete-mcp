@@ -227,18 +227,57 @@ html = html.replace('</html>', '<p><a href="siglip-comparison.json">SigLIP vs X-
 print('SIGLIP_REAL_COMPARISON_PASS='+json.dumps(paired['reviewed_positive_summary']))
 PY
 
-# A static-site build can report success while its JSON is malformed: fail closed.
-python3 -m json.tool "$OUT/report.json" >/dev/null
-python3 -m json.tool "$OUT/diagnostic-report.json" >/dev/null
-python3 -m json.tool "$OUT/siglip-comparison.json" >/dev/null
-echo STEINBERG_ALL_PUBLISHED_EVIDENCE_JSON_VALID
-
-# Survey is independent of model labels and runs only after both real models pass.
-echo FOLEY_RUNNING_DOOR_REVIEW_SURVEY_BEGIN
+echo FOLEY_REVIEWED_ACTION_CONTROLS_CONTRACT_TESTS_BEGIN
 python -m unittest discover -s tests/python -p 'test_foley_running_door_controls.py' -v
-python scripts/survey_foley_running_door_controls.py "$FFMPEG"
-python -m json.tool "$OUT/action-controls-survey.json" >/dev/null
-echo FOLEY_RUNNING_DOOR_REVIEW_SURVEY_COMPLETED_NOT_ACTION_ACCURACY
+python -m unittest discover -s tests/python -p 'test_foley_reviewed_controls_comparison.py' -v
+
+# Four reviewer-locked windows: three action positives and one narrow negative.
+# Real models use verified local weights in separate CPU processes.
+echo FOLEY_FOUR_REVIEWED_VIDEO_HASH_GATE_BEGIN
+python scripts/benchmark_foley_reviewed_controls.py prepare "$FFMPEG" "$FFPROBE"
+
+echo FOLEY_FOUR_REAL_XCLIP_INFERENCE_BEGIN
+python scripts/benchmark_foley_reviewed_controls.py xclip "$MODEL_DIR" "$FFPROBE"
+echo FOLEY_FOUR_REAL_SIGLIP_INFERENCE_BEGIN
+python scripts/benchmark_foley_reviewed_controls.py siglip "$(cat "$OUT/siglip-model-dir.txt")" "$FFPROBE"
+
+echo FOLEY_FOUR_REAL_MODEL_COMPARISON_GATE_BEGIN
+python scripts/benchmark_foley_reviewed_controls.py finalize
+
+python - <<'PY'
+from pathlib import Path
+import json
+root = Path('.render-xclip-real-proof')
+report = json.loads((root/'report.json').read_text(encoding='utf8'))
+comparison = json.loads((root/'action-controls-comparison.json').read_text(encoding='utf8'))
+info = comparison['summary']
+if not (
+    comparison['source_sha'] == report['source_sha']
+    and info['verified_positive_windows'] == 3
+    and info['verified_door_operation_specific_negative_windows'] == 1
+    and info['production_threshold_changed'] is False
+):
+    raise SystemExit('INVALID_FOUR_ACTION_CONTROL_REAL_COMPARISON')
+report['reviewed_running_and_door_comparison'] = {
+    'status': comparison['status'],
+    'report': 'action-controls-comparison.json',
+    'xclip_full_scores': 'action-controls-xclip.json',
+    'siglip_full_scores': 'action-controls-siglip.json',
+    'reviewed_summary': info,
+}
+(root/'report.json').write_text(json.dumps(report,indent=2,ensure_ascii=False)+'\n',encoding='utf8')
+html = (root/'index.html').read_text(encoding='utf8')
+html = html.replace('</html>', '<p><a href="action-controls-comparison.json">Four reviewed running/door windows</a></p></html>')
+(root/'index.html').write_text(html, encoding='utf8')
+print('FOLEY_ACTION_CONTROLS_REAL_GATE_COMPLETE=' + json.dumps(info))
+PY
+
+# A static-site build can report success while its JSON is malformed: fail closed.
+for file in report.json diagnostic-report.json siglip-comparison.json action-controls-comparison.json action-controls-xclip.json action-controls-siglip.json; do
+  python3 -m json.tool "$OUT/$file" >/dev/null
+done
+test ! -e "$OUT/_reviewed_controls_media_NOT_PUBLISHED"
+echo STEINBERG_ALL_PUBLISHED_EVIDENCE_JSON_VALID
 
 # Never publish original/modified media or model weights as public Render assets.
 rm -f "$OUT/opencv-vtest-original.avi" "$OUT/pedestrians-two-seconds.mp4" "$OUT/model-path.txt" "$OUT/siglip-model-dir.txt"

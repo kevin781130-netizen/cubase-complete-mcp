@@ -102,18 +102,21 @@ def decide(scores, start: int, end: int, min_score: float, min_margin: float):
 
 
 def classify(video: Path, model_dir: Path, num: int, den: int, count: int,
-             min_score: float, min_margin: float) -> tuple[list[dict], int]:
+             min_score: float, min_margin: float, traces=None, runtime=None) -> tuple[list[dict], int]:
     # Heavy dependencies deliberately loaded only when real inference was requested.
     import cv2
     import torch
     from transformers import XCLIPModel, XCLIPProcessor
 
     # Model must already be downloaded by the user. No arbitrary remote Python code.
-    model = XCLIPModel.from_pretrained(str(model_dir), local_files_only=True,
-                                      trust_remote_code=False, use_safetensors=True)
-    processor = XCLIPProcessor.from_pretrained(str(model_dir), local_files_only=True,
-                                               trust_remote_code=False)
-    model.eval()
+    if runtime is None:
+        model = XCLIPModel.from_pretrained(str(model_dir), local_files_only=True,
+                                          trust_remote_code=False, use_safetensors=True)
+        processor = XCLIPProcessor.from_pretrained(str(model_dir), local_files_only=True,
+                                                   trust_remote_code=False)
+        model.eval()
+    else:
+        model, processor = runtime  # Reuse the same verified CPU weights across benchmark clips.
     cap = cv2.VideoCapture(str(video))
     if not cap.isOpened():
         raise ValueError("Could not decode the selected video using OpenCV.")
@@ -137,6 +140,28 @@ def classify(video: Path, model_dir: Path, num: int, den: int, count: int,
                 logits = model(**inputs).logits_per_video[0]
                 scores = torch.softmax(logits, dim=-1).detach().cpu().tolist()
             cue = decide(scores, start, end, min_score, min_margin)
+            if traces is not None:
+                raw_logits = logits.detach().cpu().tolist()
+                ranking = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
+                top, second = ranking[:2]
+                traces.append({
+                    "window_start_frame": start, "window_end_frame": end,
+                    "decoded_frame_indices": samples,
+                    "raw_logits": {action[0]: round(float(raw_logits[i]), 8)
+                                   for i, action in enumerate(ACTIONS)},
+                    "relative_softmax_scores": {action[0]: round(float(scores[i]), 8)
+                                                for i, action in enumerate(ACTIONS)},
+                    "ranking": [ACTIONS[i][0] for i in ranking],
+                    "top_score": round(float(scores[top]), 8),
+                    "top_margin": round(float(scores[top] - scores[second]), 8),
+                    "abstention_reason": (
+                        "neutral_prompt" if ACTIONS[top][1] == "other"
+                        else "low_relative_score" if scores[top] < min_score
+                        else "insufficient_margin" if scores[top] - scores[second] < min_margin
+                        else None
+                    ),
+                    "emitted_candidate": cue is not None
+                })
             if cue is not None:
                 events.append(cue)
     finally:
@@ -145,7 +170,8 @@ def classify(video: Path, model_dir: Path, num: int, den: int, count: int,
 
 
 def produce(video: Path, model_dir: Path, ffprobe: Path,
-            min_score: float, min_margin: float, classifier=classify):
+            min_score: float, min_margin: float, classifier=classify,
+            diagnostic_scores: bool = False):
     if not video.is_file() or video.is_symlink() or video.suffix.lower() not in {
         ".mp4", ".mov", ".mkv", ".mxf"
     }:
@@ -161,7 +187,15 @@ def produce(video: Path, model_dir: Path, ffprobe: Path,
     if not 0.30 <= min_score <= 0.99 or not 0.05 <= min_margin <= 0.95:
         raise ValueError("Relative score and score-margin thresholds out of bounds.")
     num, den, count = probe(ffprobe, video)
-    results, windows = classifier(video, model_dir, num, den, count, min_score, min_margin)
+    traces = []
+    if diagnostic_scores:
+        if classifier is not classify:
+            raise ValueError("Diagnostics require the actual pretrained classifier.")
+        results, windows = classifier(video, model_dir, num, den, count,
+                                      min_score, min_margin, traces=traces)
+    else:
+        results, windows = classifier(video, model_dir, num, den, count,
+                                      min_score, min_margin)
     if not isinstance(results, list) or len(results) > MAX_WINDOWS:
         raise ValueError("Provider produced too many candidate windows.")
     stat = video.stat()
@@ -182,6 +216,7 @@ def produce(video: Path, model_dir: Path, ffprobe: Path,
         "human_review_required": True,
         "sample_audio_identified": False,
         "cues": results,
+        **({"window_diagnostics": traces} if diagnostic_scores else {}),
     }
 
 
@@ -192,11 +227,14 @@ def main():
     parser.add_argument("--ffprobe", required=True)
     parser.add_argument("--min-score", type=float, default=0.48)
     parser.add_argument("--min-margin", type=float, default=0.12)
+    parser.add_argument("--diagnostic-scores", action="store_true",
+                        help="Include raw model logits and all ten relative prompt scores.")
     args = parser.parse_args()
     video = Path(args.video).resolve(strict=True)
     model_dir = Path(args.model_dir).resolve(strict=True)
     ffprobe = Path(args.ffprobe).resolve(strict=True)
-    result = produce(video, model_dir, ffprobe, args.min_score, args.min_margin)
+    result = produce(video, model_dir, ffprobe, args.min_score, args.min_margin,
+                     diagnostic_scores=args.diagnostic_scores)
     json.dump(result, sys.stdout, ensure_ascii=False, separators=(",", ":"))
     sys.stdout.write("\n")
 

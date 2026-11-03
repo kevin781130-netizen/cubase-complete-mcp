@@ -118,9 +118,13 @@ On Windows with a compatible .NET 8 SDK, from the repository root:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-steinberg-offline.ps1
 ```
 
-The script performs lockfile-aware restore, solution build, all `Steinberg`-named tests and pinned-schema validation; it writes a machine-readable report under the user's temporary directory. It does not call GitHub Actions, upload evidence, run Cubase/Nuendo, or claim real timeline acceptance. NuGet restore may need network access if packages are not locally cached.
+The script performs a **strictly offline, locked restore** using an empty local NuGet feed plus the already populated global package cache. Missing cached packages are reported as `ENVIRONMENT_BLOCKED` (no network fallback); it then builds the solution, runs all `Steinberg`-named tests and the pinned XSD validation. A machine-readable report is written under the user's temporary directory. It does not call GitHub Actions, upload evidence, run Cubase/Nuendo, or claim real timeline acceptance.
 
 **Current truth:** The agent's execution container has **no `dotnet` executable** and cannot run this Windows-targeted .NET solution. Accordingly the new .NET build and pinned official XSD tests are **NOT_RUN** here; source/test-file presence is not a PASS. A report of `PASS_OFFLINE_ONLY` is issued **only** after the script really returns success.
+
+## Slice 6 — source-safety hardening before real .NET acceptance
+
+The WAV reader now rejects a false RIFF byte count, truncated/misaligned chunk padding, duplicate `fmt`/`data` chunks, unsupported sample formats, and contradictory channel count / sample size / byte rate / block alignment. `DAW06` regression cases cover three corruptions and then assert that the same approved original WAV can still be packaged. These tests are committed but **NOT_EXECUTED** in this environment without the .NET SDK. No actual Cubase/Nuendo host import has run.
 
 ## Version and acceptance boundaries
 

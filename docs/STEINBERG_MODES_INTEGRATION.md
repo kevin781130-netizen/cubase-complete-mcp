@@ -221,6 +221,20 @@ Example MCP arguments:
 
 **Verification boundary:** the Render Linux gate compiles .NET and tests the MCP schema, source window/score preservation and fail-closed settings, plus six dependency-free Python tests with a **simulated classifier**. It **does not download or run the actual 0.2B-parameter model**, and does not test native Windows, commercial acceptance of the training data, accuracy on real footage or Cubase/Nuendo. Do not call these contract tests a real model-inference PASS.
 
+## Slice 14 — real pretrained X-CLIP score diagnostics (3 weakly labeled Commons videos)
+
+The X-CLIP provider now accepts an **explicit diagnostic-only** `--diagnostic-scores` CLI flag. The normal MCP action-candidate tool and existing JSON outputs are unchanged. Diagnostics record the **ten unnormalized model logits**, **ten relative softmax values**, rank order, top-class score and margin, frames sampled, source window and explicit abstention reason. None of these are calibrated event probabilities or action onset timestamps.
+
+The dedicated Render real-weights build additionally runs `scripts/benchmark_xclip_commons.py` and publishes a separate `diagnostic-report.json` with per-case source SHA-256, exact model/SHA source inherited from the main report, class ranking and counts for three **Wikimedia Commons** videos. The original and derived media files are deleted before publish; only provenance, scores and statistics appear publicly.
+
+Samples, description-based **weak** labels and licensing:
+
+- `walking`: [Vespero en Hong Kong Island (2014) 02.webm](https://commons.wikimedia.org/wiki/File:Vespero_en_Hong_Kong_Island_(2014)_02.webm), creator RG72, **CC BY-SA 4.0**
+- `running`: [Runners.webm](https://commons.wikimedia.org/wiki/File:Runners.webm), creator Evworo, **CC BY-SA 3.0**
+- `clapping`: [Viking clapping of Esteghlal fans in the match against Shahr Khodro, 9 May 2022.webm](https://commons.wikimedia.org/wiki/File:Viking_clapping_of_Esteghlal_fans_in_the_match_against_Shahr_Khodro,_9_May_2022.webm), creator Maometto, **CC BY-SA 4.0**
+
+Original videos are downloaded temporarily, clipped to the **first two seconds**, and transcoded to 12 fps for deterministic 8-frame windows. Their **Commons titles/descriptions are not frame-level ground truth**; a selected two-second excerpt may not contain the named action. Thus "possible misses" and Top-1/Top-3 description agreement are exploratory diagnostic counts **not validated recall, false-negative rate, precision, or commercial accuracy**. The normal 0.48/0.12 threshold is not changed based on three samples; report-only sweeps compare alternative settings. No KTH research-only video was used, no generated SFX was selected, and Cubase/Nuendo real-machine import remains NOT_RUN.
+
 ## Version and acceptance boundaries
 
 - The **existing** broker/driver was validated on Cubase 15, not Cubase 12–14 or Nuendo. Do not advertise those versions as working until host compatibility and API limitations have been tested.

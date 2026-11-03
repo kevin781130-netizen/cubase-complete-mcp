@@ -20,7 +20,17 @@ public sealed class SteinbergFoleyTools
     [McpServerTool(Name = "steinberg_foley_spot", ReadOnly = false, Destructive = true, OpenWorld = false)]
     [Description("Convert human- or external-detector-supplied video FRAME indices and Foley SFX search phrases into a new review-only JSON cue sheet. Handles rational FPS (e.g. 30000/1001) without guessing or decoding the video. No sound files are selected, and no DAW is modified.")]
     public JsonNode Spot(string video_path, string output_manifest, string cues_json,
-        int fps_numerator, int fps_denominator, long video_frame_count)
+        int fps_numerator, int fps_denominator, long video_frame_count) =>
+        SpotCore(video_path, output_manifest, cues_json, fps_numerator, fps_denominator,
+            video_frame_count, cutPilot: false);
+
+    internal JsonNode SpotCutPilot(string video_path, string output_manifest, string cues_json,
+        int fps_numerator, int fps_denominator, long video_frame_count) =>
+        SpotCore(video_path, output_manifest, cues_json, fps_numerator, fps_denominator,
+            video_frame_count, cutPilot: true);
+
+    private JsonNode SpotCore(string video_path, string output_manifest, string cues_json,
+        int fps_numerator, int fps_denominator, long video_frame_count, bool cutPilot)
     {
         try
         {
@@ -82,7 +92,7 @@ public sealed class SteinbergFoleyTools
             {
                 ["schema"] = "steinberg-foley-cues-v1",
                 ["status"] = "draft_requires_approval",
-                ["source"] = "caller_supplied_spotting_not_video_inference",
+                ["source"] = cutPilot ? "cutpilot_histogram_scene_boundaries_not_action_detection" : "caller_supplied_spotting_not_video_inference",
                 ["video"] = new JsonObject
                 {
                     ["path"] = video,
@@ -90,11 +100,13 @@ public sealed class SteinbergFoleyTools
                     ["fps_numerator"] = fps_numerator,
                     ["fps_denominator"] = fps_denominator,
                     ["total_frames"] = video_frame_count,
-                    ["timing_provenance"] = "caller_supplied_unverified"
+                    ["timing_provenance"] = cutPilot ? "ffprobe_average_frame_rate_assumed_cfr" : "caller_supplied_unverified"
                 },
                 ["events"] = sorted,
                 ["host_action"] = "none",
-                ["warnings"] = "No frames were decoded, no video FPS/duration was probed, no actions were detected, no SFX files were matched, and no DAW project was changed. Confirm source timing, source video origin, SFX rights and event accuracy before import."
+                ["warnings"] = cutPilot
+                    ? "CutPilot sampled video frames and used histogram correlation for scene boundaries only. Scene positions are sampling-resolution estimates, not semantic actions or precise SMPTE timecode. Confirm constant FPS, every scene boundary, SFX need, and audio rights. No sound was selected and no DAW project was changed."
+                    : "No frames were decoded, no video FPS/duration was probed, no actions were detected, no SFX files were matched, and no DAW project was changed. Confirm source timing, source video origin, SFX rights and event accuracy before import."
             };
 
             using (var stream = new FileStream(output, FileMode.CreateNew, FileAccess.Write, FileShare.None))
@@ -107,7 +119,7 @@ public sealed class SteinbergFoleyTools
                 ["cues"] = sorted.Count,
                 ["unmatched_samples"] = sorted.Count,
                 ["host_modified"] = false,
-                ["video_analyzed"] = false,
+                ["video_analyzed"] = cutPilot,
                 ["requires_review"] = true
             };
         }

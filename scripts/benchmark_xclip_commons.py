@@ -42,6 +42,12 @@ SAMPLES = (
         "label": "clapping", "creator": "Maometto", "license": "CC-BY-SA-4.0",
         "page": "https://commons.wikimedia.org/wiki/File:Viking_clapping_of_Esteghlal_fans_in_the_match_against_Shahr_Khodro,_9_May_2022.webm",
     },
+    {
+        "id": "walking_in_sands",
+        "filename": "Walking in the sands.webm",
+        "label": "walking", "creator": "sgu18ify", "license": "CC-BY-3.0",
+        "page": "https://commons.wikimedia.org/wiki/File:Walking_in_the_sands.webm",
+    },
 )
 # Existing production settings remain intact; other thresholds are diagnostic only.
 THRESHOLDS = (("current", 0.48, 0.12), ("conservative", 0.60, 0.20),

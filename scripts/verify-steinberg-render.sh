@@ -46,6 +46,9 @@ dotnet test tests/CubaseCompleteMcp.Server.Tests/CubaseCompleteMcp.Server.Tests.
   --logger "trx;LogFileName=$TRX" \
   --results-directory .render-steinberg-proof
 
+echo STEINBERG_CUTPILOT_PROVIDER_TEST_BEGIN
+python3 -m unittest discover -s tests/python -p 'test_cutpilot_foley_provider.py' -v
+
 python3 - "$HEAD" ".render-steinberg-proof/$TRX" <<'PY'
 import json, sys, xml.etree.ElementTree as ET
 from pathlib import Path
@@ -67,7 +70,9 @@ if not tests or len(tests) != len(passed) or missing:
 report = {
     'status': 'PASS_LINUX_PORTABLE_ONLY',
     'source_head': head,
-    'scope': '.NET compile, Steinberg test class execution, pinned official DAWproject XSD tests',
+    'scope': '.NET compile, Steinberg MCP tests, pinned DAWproject XSD tests, external CutPilot contract tests with a fake detector',
+    'cutpilot_python_contract_tests': 'PASS_5_OF_5_SIMULATED_SCENE_DETECTOR',
+    'real_cutpilot_opencv_video': 'NOT_RUN',
     'executed_tests': len(tests),
     'passed_tests': len(passed),
     'official_xsd_tests': list(required),

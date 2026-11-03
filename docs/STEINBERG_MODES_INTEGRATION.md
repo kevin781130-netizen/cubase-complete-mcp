@@ -247,6 +247,16 @@ These are **human-reviewed static excerpts only**. The review was **not blinded*
 
 The `benchmark_xclip_commons.py` gate now preserves its original weak-label figures for comparison, but additionally reports `human_frame_review_summary` where the unconfirmed two cases are excluded. Media and contact sheets are not published to the static site; only metadata, frame hash and review text are saved. The model, production settings, DAWproject export and host communication remain unchanged.
 
+## Slice 17 — new real-video source audit and fourth X-CLIP benchmark case
+
+An additional bounded candidate survey (`scripts/survey_foley_action_videos.py`) reviewed **three new** Commons clips from separate licensing sources; all downloaded media and contact images were deleted after the checksum-locked six-frame review. The survey is **opt-in** and not rerun on every routine model gate. Evidence and exclusion rationale are preserved in `tests/fixtures/xclip_candidate_survey_20261104.json`:
+
+1. **Beach walking — visually confirmed**: [Walking in the sands.webm](https://commons.wikimedia.org/wiki/File:Walking_in_the_sands.webm) by sgu18ify (CC BY 3.0). A person advances along the shoreline across six sampled frames. Included as the **fourth** `benchmark_xclip_commons.py` case; the exact contact-sheet SHA-256 `ec3ca9a352b05d0a7618edf38a8af5c85235c8292181f583455fa25779d41210` is required.
+2. **CDC child running — not independently confirmed in selected segment**: [2 Year Milestone- Begins to run.webm](https://commons.wikimedia.org/wiki/File:2_Year_Milestone-_Begins_to_run.webm) (CDC, public domain). The first two seconds show a child carrying a ball and moving; a definite run is not established from the stills. Excluded, regardless of the source title.
+3. **NHS clapping — not visible in selected segment**: [Clap for NHS Thousands clap hands together...webm](https://commons.wikimedia.org/wiki/File:Clap_for_NHS_Thousands_clap_hands_together_in_round_of_applause_for_NHS_workers_Metro.webm) (AZ News, CC BY 3.0). First two seconds contain a graphic intro; no visible clapping. Excluded.
+
+The real X-CLIP gate now requires **four** benchmark clips with exactly **two** hashed, visually confirmed walking positives, and continues to exclude the two unresolved original labels. It must not assert any population-level precision/recall, onset timing, background-noise detection or commercial accuracy from these few static-frame confirmations. The fixed production threshold (0.48 / 0.12) and Cubase/Nuendo core remain unchanged. Windows real-machine validation and sample matching remain NOT_RUN.
+
 ## Version and acceptance boundaries
 
 - The **existing** broker/driver was validated on Cubase 15, not Cubase 12–14 or Nuendo. Do not advertise those versions as working until host compatibility and API limitations have been tested.

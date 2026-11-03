@@ -171,7 +171,7 @@ public sealed class SteinbergDawprojectTools
     private static XDocument BuildProjectXml(List<Placement> clips, Dictionary<string, string> zipPaths)
     {
         var idCounter = 0;
-        string Id() => "id" + idCounter++.ToString(CultureInfo.InvariantCulture);
+        string Id() => "id" + (idCounter++).ToString(CultureInfo.InvariantCulture);
         var masterTrack = Id();
         var masterChannel = Id();
         var trackGroups = clips.GroupBy(x => x.Category, StringComparer.OrdinalIgnoreCase).ToList();
@@ -295,7 +295,8 @@ public sealed class SteinbergDawprojectTools
             throw new ArgumentException("Source must be absolute.");
         var full = Path.GetFullPath(path);
         var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        if (!full.StartsWith(root + Path.DirectorySeparatorChar, comparison) ||
+        var prefix = Path.EndsInDirectorySeparator(root) ? root : root + Path.DirectorySeparatorChar;
+        if (!full.StartsWith(prefix, comparison) ||
             !Path.GetExtension(full).Equals(".wav", StringComparison.OrdinalIgnoreCase) || !File.Exists(full))
             throw new ArgumentException("Source must be an existing WAV inside the approved library.");
         for (FileSystemInfo? item = new FileInfo(full); item is not null; item = item switch

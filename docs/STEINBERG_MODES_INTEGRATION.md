@@ -265,6 +265,19 @@ Important: **SigLIP is not a temporal action-recognition model**. It scores eigh
 
 The comparison gate re-downloads the same four attributed Wikimedia Commons files, demands the exact previously proven source **and reencoded video SHA-256** for each one, evaluates eight corresponding frame indices, and deletes all temporary footage. The resulting `siglip-comparison.json` records per-class SigLIP frame scores and side-by-side **rankings** with X-CLIP. It reports the two visually reviewed walking positives separately from two unverified action labels. No precision, recall, action-onset accuracy, sample-placement or live Cubase/Nuendo claim is made. No weights or videos are published. This step does not change the deployed Foley classification pipeline.
 
+## Slice 19 — source-audited running, door and no-clapping controls (not a model-score gate)
+
+An optional bounded review survey is implemented at `scripts/survey_foley_running_door_controls.py`, run in the separate real-model Render validation service. No change to MCP production logic. It downloads three Commons source videos temporarily, samples each at **0–2 and 4–6 seconds**, reencodes each to 12fps, checks contact-frame digest/clip SHA-256, then removes all source and derived media before publishing. **Do not count a file title or category as evidence that the target action occurs in those windows**. Each sampled contact sheet appears only in ephemeral build logs for independent review.
+
+Sources and attribution:
+
+- **Running candidate:** [Jogging – near Arakawa River – Tokyo, 2022](https://commons.wikimedia.org/wiki/File:Jogging_-_near_arakawa_river_-_tokyo_japan_-_2022_may_3.webm) by Nesnad, CC BY 4.0
+- **Door-close candidate:** [R211 Door Closing](https://commons.wikimedia.org/wiki/File:R211_Door_Closing.webm) by Schvaxet, CC BY-SA 4.0; vehicle-door movement might be visually different from household doors
+- **Door-open candidate:** [Idrija Mine Opening and Closing Door](https://commons.wikimedia.org/wiki/File:IDRIJA_ANTHONY%60S_SHAFT%3B_OPENING_AND_CLOSING_THE_DOOR_TO_THE_MINE.webm) by Sounds of Changes, CC BY 3.0
+- **Narrow negative control, previously reviewed:** first 2 seconds of the CC BY 3.0 *Clap for NHS* video (AZ News) show animated intro/graphics, **not visible clapping**. This is a **no-clapping** candidate, **not** proof of no movement, no visual events or no Foley-relevant audio.
+
+Output `action-controls-survey.json` records source licenses/credits, individual 2-second window indices, media SHA-256 and contact-sheet checksums; `visual_annotation=PENDING_FOLLOW_UP_REVIEW`, `real_xclip_siglip_on_new_controls=NOT_RUN`. A download/fail-closed or insufficient candidate count is reported, not silently changed to PASS. Only after six-frame contact sheets are inspected should observed positives or negatives be added to a subsequent model comparison. The original 4-video benchmark remains unchanged until then.
+
 ## Version and acceptance boundaries
 
 - The **existing** broker/driver was validated on Cubase 15, not Cubase 12–14 or Nuendo. Do not advertise those versions as working until host compatibility and API limitations have been tested.

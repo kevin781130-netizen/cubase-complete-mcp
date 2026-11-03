@@ -28,7 +28,8 @@ public sealed class SteinbergSampleTools
 
     [McpServerTool(Name = "steinberg_sample_search", ReadOnly = true, Destructive = false, OpenWorld = false)]
     [Description("Search a chosen LOCAL sample folder using file and folder name tags only (kick, snare, loop etc.) and explicit filename BPM. Does not listen to or analyze audio. Bounded traversal; symlinks/reparse points skipped. No modification of Cubase/Nuendo.")]
-    public JsonNode Search(string library_root, string category = "all", double? target_bpm = null, int limit = 30)
+    public JsonNode Search(string library_root, string category = "all", double? target_bpm = null, int limit = 30,
+        string? filename_query = null)
     {
         try
         {
@@ -39,6 +40,10 @@ public sealed class SteinbergSampleTools
                 return Error("INVALID_BPM", "BPM must be between 30 and 300.");
             if (limit is < 1 or > 100)
                 return Error("INVALID_LIMIT", "Limit must be between 1 and 100.");
+            if (filename_query is not null &&
+                (filename_query.Length is < 1 or > 48 || string.IsNullOrWhiteSpace(filename_query) ||
+                 filename_query.Any(c => !char.IsLetterOrDigit(c) && c != '-' && c != '_')))
+                return Error("INVALID_QUERY", "Filename query must contain 1..48 simple letters, numbers, dash or underscore.");
 
             var candidates = new List<SampleRecord>();
             var dirs = new Stack<(DirectoryInfo Dir, int Depth)>();
@@ -60,7 +65,11 @@ public sealed class SteinbergSampleTools
                         continue;
                     }
                     if (item is not FileInfo file || !Extensions.Contains(file.Extension)) continue;
-                    var tags = TagsFor(Path.GetFileNameWithoutExtension(file.Name) + " " + dir.Name);
+                    var searchable = Path.GetFileNameWithoutExtension(file.Name) + " " + dir.Name;
+                    if (filename_query is not null &&
+                        !searchable.Contains(filename_query, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    var tags = TagsFor(searchable);
                     var detected = tags.Count > 0 ? tags[0] : "other";
                     if (category != "all" && !tags.Contains(category, StringComparer.OrdinalIgnoreCase) &&
                         !(category.Equals("other", StringComparison.OrdinalIgnoreCase) && tags.Count == 0))
@@ -85,7 +94,8 @@ public sealed class SteinbergSampleTools
             return new JsonObject
             {
                 ["status"] = "Ok", ["source"] = "local_metadata_only",
-                ["library_root"] = root, ["examined_entries"] = examined,
+                ["library_root"] = root, ["filename_query"] = filename_query,
+                ["examined_entries"] = examined,
                 ["matching_files"] = candidates.Count, ["results"] = new JsonArray(results),
                 ["incomplete"] = false,
                 ["limitations"] = "No waveform BPM detection, key detection, listening, license validation, or audio-quality ranking."

@@ -62,6 +62,44 @@ Source search only reads metadata and bounded directory entries; plan reads a se
 
 **Verification:** a regression-test source file covers discovery, ordering, beat/tick/second arithmetic, collision refusal, outside-root rejection and invalid audio signatures. A real `.NET 8` build and test execution are **NOT_RUN** in this GitHub editing environment. An actual Cubase/Nuendo timeline import remains a separate future task.
 
+## Slice 4 — DAWproject multitrack export (file-only)
+
+New MCP tool: **`steinberg_export_dawproject`**.
+
+This is an additive, portable-file workflow: the user first makes `steinberg_sample_plan` drafts, reviews the sample and timing information, then explicitly sets `approved=true` to package 1–64 plans into a new `.dawproject` ZIP with **`project.xml`**, **`metadata.xml`**, and bundled WAV media.
+
+- WAV **RIFF PCM or IEEE-float, mono/stereo** only in this first cut. AIFF/FLAC remain discoverable by the library search but are **not** yet exportable. RF64, WAVE_FORMAT_EXTENSIBLE, codecs and implicit transcoding are excluded.
+- All plans must have the same constant BPM and 4-denominator meter, 960 PPQ, valid bar/beat/sixteenth timing and exact source SHA-256. The tool refuses missing/changed samples, mixed tempo, unsupported formats and existing output files.
+- Each filename-derived category gets its own DAWproject audio track, with independently positioned clips. Repeated use of the same verified WAV reuses one ZIP media entry. The converter does **not** time-stretch BPM-tagged loops, generate audio, calculate new BPM, or touch an open Cubase/Nuendo project.
+- Bundling WAV audio **copies** the approved samples into the portable file. Users must have appropriate licensing/rights; neither this tool nor the source repositories certify media redistribution rights.
+- A new output path is mandatory; a staging ZIP is used, then renamed without overwrite.
+- Host import is still **manual**: File → Import → DAWproject. Steinberg documents original-time-position audio imports for Cubase 15 and Nuendo 15. Cubase Pro/Artist 14.0.20+ supports DAWproject. Cubase/Nuendo 12–13 require a separate old-version interchange route; older host versions and exact DAW timing remain **NOT_RUN**, not supported-by-test.
+
+Example MCP call (Windows; replace all paths):
+
+```json
+{
+  "tool": "steinberg_export_dawproject",
+  "arguments": {
+    "library_root": "C:\\\\AudioLibrary",
+    "manifests": [
+      "C:\\\\Exports\\\\kick-bar2.json",
+      "C:\\\\Exports\\\\snare-bar4.json"
+    ],
+    "output_dawproject": "C:\\\\Exports\\\\arrangement-v1.dawproject",
+    "approved": true
+  }
+}
+```
+
+A new unit-test source covers multi-track grouping, three sample events, source-file deduplication, timing, missing approval, overwrite refusal, mismatched BPM, and source SHA mismatch.
+
+**Unverified gates:** No `.NET 8` compiler/test runner was available during the repository edit; `dotnet build`, `dotnet test`, validation against Bitwig's `Project.xsd`, and Cubase/Nuendo real import/playback are **NOT_RUN**. A ZIP containing XML/media is not automatically a verified importable native DAW session.
+
+Upstream DAWproject specification: https://github.com/bitwig/dawproject
+Official Cubase import reference: https://www.steinberg.help/r/cubase-pro/15.0/en/cubase_nuendo/topics/exchanging_files_with_other_applications/exchanging_files_with_other_applications_importing_dawproject_files_t.html
+Official Nuendo import reference: https://www.steinberg.help/r/nuendo/15.0/en/cubase_nuendo/topics/exchanging_files_with_other_applications/exchanging_files_with_other_applications_importing_dawproject_files_t.html
+
 ## Version and acceptance boundaries
 
 - The **existing** broker/driver was validated on Cubase 15, not Cubase 12–14 or Nuendo. Do not advertise those versions as working until host compatibility and API limitations have been tested.

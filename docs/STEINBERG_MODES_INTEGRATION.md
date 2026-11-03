@@ -448,6 +448,17 @@ Success is **\`PASS_FILE_ONLY_WINDOWS_PREFLIGHT\`**, explicitly **not** a Cubase
 
 The Render Linux build checks **seven Python source-level safety contracts** for this PowerShell entry plus existing .NET MCP tests; it cannot run Windows PowerShell or Cubase. Its JSON evidence explicitly says \`windows_powershell_runtime_execution: NOT_RUN\`. These source-level contracts are not a substitute for a successful native Windows run of this entrypoint.
 
+## Slice 28 — one-command Windows failure diagnostics and evidence preservation
+
+The Windows-only `scripts/verify-steinberg-windows-foley.ps1` remains read-only and creates a new GUID-named directory for each invocation; it now emits additional **structured failure evidence** without rerunning or requiring Cubase/Nuendo:
+
+- `foley-windows-acceptance.json`: `phase`, `failure_code`, `error_type`, ordered `stage_history` with timestamps and PASS/BLOCKED states, PowerShell / Windows build metadata, operating system bitness, installed Git and .NET SDK version when available, and previous test/hash/timecode fields. The exact exception message describes the failing check.
+- `dotnet-offline-output.log`: captured standard and error streams from the existing strict-offline .NET restore, build and MCP/XSD test gate. `dotnet-offline/steinberg-offline-verification.json` and a **fresh TRX** remain available when that gate reaches reporting. No existing user project is modified; no offline NuGet source is bypassed.
+- `failure_code` identifies a machine-readable first blocker: `NOT_WINDOWS`, `SOURCE_BRANCH_OR_WORKTREE`, `DOTNET_RESTORE_BUILD_TEST_OR_XSD`, `HUMAN_APPROVAL_FILES_MISSING` or `MEDIA_HASH_OR_TIMECODE_OR_TRACK`. The `phase` field and `message` retain further diagnostic specificity. The launcher returns nonzero for every BLOCKED/FAIL status.
+- `PASS_FILE_ONLY_WINDOWS_PREFLIGHT` is possible only after the unchanged local .NET gate, source verification and manually reviewed Foley manifest/timecode checks pass. Even then `cubase_nuendo_import=NOT_RUN`, `fps_metadata_probed=false` and `independent_license_review=false`.
+
+The Render Linux CI-equivalent **is not a Windows runtime**. It checks 12 Python static source contracts for the new Windows diagnostic instrumentation, alongside the existing .NET MCP/XSD/CutPilot/X-CLIP checks. The Linux report explicitly retains `windows_powershell_runtime_execution=NOT_RUN`. Native Windows invocation, with its precise NuGet cache and human review inputs, must be separately proven; Windows and Cubase/Nuendo cannot be declared PASS on this cloud test.
+
 ## Version and acceptance boundaries
 
 - The **existing** broker/driver was validated on Cubase 15, not Cubase 12–14 or Nuendo. Do not advertise those versions as working until host compatibility and API limitations have been tested.

@@ -279,7 +279,7 @@ def inspect_door_motion():
     if len(measurements) != 3:
         raise ValueError("Door motion evidence incomplete.")
     (PROOF / "action-controls-motion.json").write_text(
-        json.dumps(measurements, indent=2, ensure_ascii=False) + "\\n", encoding="utf8")
+        json.dumps(measurements, indent=2, ensure_ascii=False) + "\n", encoding="utf8")
 
 
 def summarize(xclip_rows: list[dict], siglip_rows: list[dict]):

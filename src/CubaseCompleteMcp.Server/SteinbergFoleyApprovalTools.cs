@@ -341,7 +341,7 @@ public sealed class SteinbergFoleyApprovalTools
         using var f = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read);
         return Hex(SHA256.HashData(f));
     }
-    private static string Hex(byte[] hash) => Convert.ToHexStringLower(hash);
+    private static string Hex(byte[] hash) => Convert.ToHexString(hash).ToLowerInvariant();
     private static bool HashText(string? hash) =>
         hash is { Length: 64 } && hash.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f');
     private static JsonObject Error(string code, string message) => new()

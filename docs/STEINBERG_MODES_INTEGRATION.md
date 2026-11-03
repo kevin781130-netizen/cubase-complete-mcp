@@ -459,6 +459,24 @@ The Windows-only `scripts/verify-steinberg-windows-foley.ps1` remains read-only 
 
 The Render Linux CI-equivalent **is not a Windows runtime**. It checks 12 Python static source contracts for the new Windows diagnostic instrumentation, alongside the existing .NET MCP/XSD/CutPilot/X-CLIP checks. The Linux report explicitly retains `windows_powershell_runtime_execution=NOT_RUN`. Native Windows invocation, with its precise NuGet cache and human review inputs, must be separately proven; Windows and Cubase/Nuendo cannot be declared PASS on this cloud test.
 
+## Slice 29 — native Windows PowerShell synthetic selftest before Foley review inputs
+
+The existing one-command Windows entry `scripts/verify-steinberg-windows-foley.ps1` now accepts an **optional explicit `-SelfTest` switch** so the first Windows-native execution can be verified without a DAW, NuGet package cache, any real footage or human-approved Foley files. This is a narrow smoke test for script/runtime correctness and **does not** bypass or replace the full offline gate.
+
+On the real Windows checkout, in the selected feature branch:
+
+```powershell
+powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\verify-steinberg-windows-foley.ps1 -SelfTest
+```
+
+The switch creates only a **synthetic one-second mono, 8 kHz, 16-bit PCM RIFF/WAV fixture** inside the script's existing **new GUID-named acceptance evidence directory**; it checks the real PowerShell `Read-WavHeader` implementation, `Must-File`, Windows SHA-256 output and changes to SHA-256 after mutating one audio byte without changing the RIFF header. It also tests `Rate-Nominal` and `Frame-TC` with independent known examples: 29.97 drop-frame at frames 1800 and 17982, 59.94 drop-frame at frame 3600, and 30fps non-drop at frame 1800. Audio is not played, and no actual WAV, video, project, sample library or user files are opened or changed.
+
+The **only success status** for this explicit diagnostic mode is `PASS_WINDOWS_SCRIPT_SELFTEST_ONLY`, not `PASS_FILE_ONLY_WINDOWS_PREFLIGHT` or Cubase/Nuendo import acceptance. A native OS mismatch, broken script, invalid PCM header, unchanging SHA-256 after byte mutation, or incorrect SMPTE arithmetic fails closed with a nonzero exit and a structured `foley-windows-acceptance.json`. The report includes `selftest_requested`, `selftest_scope`, stage `WINDOWS_NATIVE_SCRIPT_SELFTEST`, a stable `WINDOWS_SELFTEST_FAILURE` blocker when relevant, and the same Windows PowerShell/OS evidence recorded by the main launcher. In this mode, `offline_gate=NOT_RUN`, `cubase_nuendo_import=NOT_RUN`, `fps_metadata_probed=false`; no change to `main` or GitHub Actions.
+
+Without `-SelfTest`, the original full behavior **remains unchanged**: clean named Git branch, strict offline .NET/MCP/XSD tests, **two human-supplied approval/timing JSON inputs**, video and WAV SHA-256 recheck, human-confirmed frame and track mapping. Full PASS still requires all of those steps; no selftest result is accepted in their place.
+
+The Render Linux job runs **17 source-level safety contracts** and the existing portable .NET tests; it **does not** prove native Windows execution. A `PASS_WINDOWS_SCRIPT_SELFTEST_ONLY` can only be claimed after an actual Windows run of this new switch and its evidence.
+
 ## Version and acceptance boundaries
 
 - The **existing** broker/driver was validated on Cubase 15, not Cubase 12–14 or Nuendo. Do not advertise those versions as working until host compatibility and API limitations have been tested.

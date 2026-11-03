@@ -281,6 +281,19 @@ Output `action-controls-survey.json` records source licenses/credits, individual
 **Independent sampled-still review completed 2026-11-04** (evidence: `tests/fixtures/foley_action_controls_visual_review_20261104.json`, every case bound to its contact-sheet SHA-256; Render survey SHA `0529d272`). The 4–6 second **Arakawa jogging** excerpt visually supports a runner; the 4–6 second **R211 subway** excerpt visibly shows door panels moving toward closure; the 0–2 second **Idrija mine** excerpt shows a person opening a hinged door. These are three visually supported action clips, **not yet run through X-CLIP or SigLIP**. The 4–6 second mine-door excerpt shows an already-open door with no discernible opening or closing in the sampled images: a **door-operation-specific negative**, not a universal no-motion/no-SFX negative. The other two examined windows remain indeterminate. All six observations are based on non-blind review of sampled stills, not verified onset times or full-motion ground truth.
 
 
+## Slice 20 — real paired inference on audited Foley controls (Render evidence)
+
+The dedicated Render X-CLIP+SigLIP build now runs `scripts/benchmark_foley_reviewed_controls.py` **after** the existing four-video sanity gate, using separately verified official local model weights. Four, and only four, 12fps two-second video windows from `tests/fixtures/foley_action_controls_visual_review_20261104.json` are independently re-downloaded, reencoded and verified against the exact previously reviewed **six-frame contact JPEG SHA-256** before any model inference:
+
+- Arakawa jogger at 4–6 s — visually supported `running` positive
+- R211 subway doors at 4–6 s — visually supported `closing_door` positive
+- Idrija mine door at 0–2 s — visually supported `opening_door` positive
+- Idrija mine door at 4–6 s — **class-specific negative only** for discernible `opening_door` / `closing_door`; no claim of overall inactivity or absence of audio
+
+Each model runs real pretrained weights in a **separate CPU process** to limit memory. X-CLIP analyzes 8 frames jointly and reports all 10 raw logits, relative softmax ranks, whether the fixed **0.48 / 0.12** production thresholds emit a matching candidate, and whether a door-specific negative wrongly receives a door action candidate. SigLIP scores the exact same 8 frames **independently** and aggregates ranks; its sigmoid values are **not calibrated** or comparable to X-CLIP scores or gating thresholds. Results are separated into `action-controls-xclip.json`, `action-controls-siglip.json` and `action-controls-comparison.json` with source hashes, credits, reviewed JPEG hashes and a narrow negative-control field. All four video clips are deleted before static-site deployment.
+
+**No claim of verified population precision or recall** is permitted: the labels rely on non-blinded six-frame still-review, not exhaustive temporal annotations; the negative controls are narrow; the dataset is just three positives and one negative. The reported model ranking / emission count serves only to decide future technical development and cannot change the production threshold automatically. No SFX sample is selected, no commercial video-quality guarantee is inferred, and Cubase/Nuendo Windows import remains NOT_RUN. A real Render `LIVE` deployment and valid JSON reports on the exact SHA are required before the new model comparison can be called PASS.
+
 ## Version and acceptance boundaries
 
 - The **existing** broker/driver was validated on Cubase 15, not Cubase 12–14 or Nuendo. Do not advertise those versions as working until host compatibility and API limitations have been tested.

@@ -1,7 +1,7 @@
 {
   "schema": "xclip-visual-review-v1",
   "review_date": "2026-11-04",
-  "review_method": "Independent visual examination of six sampled frames from each two-second clip; no full-motion playback or audio",
+  "review_method": "Independent visual examination of six sampled frames from each two-second clip; no full-motion playback or audio. Sources with unconfirmed visible actions excluded.",
   "reviewer_disclosure": "Model class rankings had already been observed; review is not blind",
   "limitations": "This review can verify visible evidence in selected stills, not exact action onset, unseen intermediate frames, audio or model reliability. Only confirmed-visible items enter the reviewed subset.",
   "reviewed_source_sha": "58086d7ea0264ce9f3f326b4fa0b5c79f5d1059d",
@@ -56,6 +56,26 @@
       "review_note": "Raised hands and cheering gestures are visible; repeated palm contact cannot be reliably established from the six still frames alone.",
       "review_confidence": "low",
       "qualifies_for_reviewed_subset": false
+    },
+    {
+      "id": "walking_in_sands",
+      "target_class": "walking",
+      "contact_sheet_sha256": "ec3ca9a352b05d0a7618edf38a8af5c85235c8292181f583455fa25779d41210",
+      "sampled_frame_indices": [
+        0,
+        5,
+        9,
+        14,
+        18,
+        23
+      ],
+      "visual_status": "confirmed_visible",
+      "review_note": "A person near the shoreline visibly advances across successive sampled frames, with changed stance, foot position and location. Consistent with walking; no exact onset or sound can be deduced.",
+      "review_confidence": "moderate",
+      "qualifies_for_reviewed_subset": true,
+      "survey_source_sha": "556b0ab4cbf1f47df967bf790542c998a521ff31",
+      "license": "CC BY 3.0",
+      "source_page": "https://commons.wikimedia.org/wiki/File:Walking_in_the_sands.webm"
     }
   ]
 }

@@ -49,6 +49,9 @@ dotnet test tests/CubaseCompleteMcp.Server.Tests/CubaseCompleteMcp.Server.Tests.
 echo STEINBERG_CUTPILOT_PROVIDER_TEST_BEGIN
 python3 -m unittest discover -s tests/python -p 'test_cutpilot_foley_provider.py' -v
 
+echo STEINBERG_XCLIP_OFFLINE_CONTRACT_TEST_BEGIN
+python3 -m unittest discover -s tests/python -p 'test_xclip_foley_action_provider.py' -v
+
 python3 - "$HEAD" ".render-steinberg-proof/$TRX" <<'PY'
 import json, sys, xml.etree.ElementTree as ET
 from pathlib import Path
@@ -73,6 +76,8 @@ report = {
     'scope': '.NET compile, Steinberg MCP tests, pinned DAWproject XSD tests, external CutPilot contract tests with a fake detector',
     'cutpilot_python_contract_tests': 'PASS_5_OF_5_SIMULATED_SCENE_DETECTOR',
     'real_cutpilot_opencv_video': 'NOT_RUN',
+    'xclip_python_contract_tests': 'PASS_6_OF_6_SIMULATED_INFERENCE_NO_MODEL_WEIGHTS',
+    'real_xclip_pretrained_weights_inference': 'NOT_RUN',
     'executed_tests': len(tests),
     'passed_tests': len(passed),
     'official_xsd_tests': list(required),

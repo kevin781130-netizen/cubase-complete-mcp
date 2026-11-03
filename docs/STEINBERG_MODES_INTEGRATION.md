@@ -386,6 +386,48 @@ Two MCP tools in \`SteinbergFoleyApprovalTools.cs\` extend the local, review-onl
 
 This **records a human attestation**, not independently verified legal rights, sound quality or precise motion onset. Audio bytes must be hashed again immediately before any later export/import. The final status is \`human_attested_samples_pending_daw_timing_review\`; \`action_timing_verified: false\`, \`daw_placement_approved: false\`, \`host_action: none\`. No media copied, DAW plugin called or live project altered. Actual Cubase/Nuendo Windows import is **NOT_RUN**.
 
+## Slice 26 — Windows Cubase/Nuendo Foley preimport evidence gate (file only)
+
+The MCP tool \`steinberg_foley_preimport_check\` consumes the **original unchanged** \`steinberg-foley-pre-daw-hashlocked-v1\` manifest, a separately human-authored frame/track review JSON, and a **new** JSON report destination. It is a portable, host-independent validator; it never launches Cubase/Nuendo, contacts the broker or inserts clips. The previous tool’s human attestation is preserved, **not** treated as proof of independent rights verification.
+
+Human timing review format (example values must be replaced with actual hashes and paths):
+
+\`\`\`json
+{
+  "schema": "steinberg-foley-human-timing-review-v1",
+  "pre_daw_manifest_sha256": "<SHA-256 of exact pre-DAW manifest bytes>",
+  "host_action": "none",
+  "video": {
+    "path": "C:\\Foley\\full-video.mp4",
+    "sha256": "<SHA-256 of entire LOCAL source video>",
+    "fps_numerator": 30000,
+    "fps_denominator": 1001,
+    "total_frames": 90000,
+    "timecode_mode": "drop_frame"
+  },
+  "assignments": [
+    {
+      "source_event_id": "mine_door_at_0",
+      "reviewed_window_sha256": "<SHA-256 of reviewed 2-second model window from pre-DAW manifest>",
+      "sample_sha256": "<approved WAV content SHA-256 from pre-DAW manifest>",
+      "event_frame": 1800,
+      "duration_frames": 12,
+      "track_name": "FOLEY_DOOR_OPEN",
+      "human_confirmed_video_frame": true,
+      "human_confirmed_track": true,
+      "human_confirmed_source_window_to_video_mapping": true,
+      "reviewer_note": "Manually checked 2-second model-window mapping and exact offset in full video"
+    }
+  ]
+}
+\`\`\`
+
+The validator requires one unique frame/track assignment for **each** audio approved in the previous stage, no automatic-placement flags, matching model-window SHA, and fixed action-specific labels \`FOLEY_DOOR_OPEN\` / \`FOLEY_DOOR_CLOSE\`. The complete local video file **and each approved PCM/float WAV** must still match its recorded SHA-256; any changed byte, missing source, duplicate event, incorrect track, unsupported video format/timecode, negative/out-of-range frame or absent human confirmation fails closed without creating a report. Files are read but never copied or written back.
+
+Timecode is derived from a zero-based **human-approved absolute frame index** using an explicitly declared rational FPS. Supported rates: 24, 25, 30, 50, 60 fps, plus 24000/1001, 30000/1001, 60000/1001. Non-drop labels use \`HH:MM:SS:FF\`; drop-frame labels (\`HH:MM:SS;FF\`) are supported **only** for 30000/1001 and 60000/1001. The report also includes numerical seconds from source-video start. Note that the **real video's FPS, frame count, native embedded timecode and action onset are NOT extracted or independently verified**: a SHA-256 match proves video-file identity only, while explicit human declarations govern the mapping from short, separately hashed model windows to the source timeline.
+
+The generated \`steinberg-foley-preimport-acceptance-v1\` is **PASS_FILE_ONLY_READY_FOR_MANUAL_DAW_REVIEW**, not Windows host acceptance. It lists event frames, seconds, relative SMPTE-style timecodes, fixed track mapping, verified WAV and video hashes, and precise limitations. \`actual_cubase_nuendo_import=NOT_RUN\`, \`automatic_daw_import=false\`, \`host_action=none\`. The DAW tracks are expected names for later **manual track review**, not proof they exist in Cubase/Nuendo. Human sound/sync review and real Windows import remain outstanding. The \`main\` branch, GitHub Actions and the existing DAWproject exporter are not changed by this slice.
+
 ## Version and acceptance boundaries
 
 - The **existing** broker/driver was validated on Cubase 15, not Cubase 12–14 or Nuendo. Do not advertise those versions as working until host compatibility and API limitations have been tested.

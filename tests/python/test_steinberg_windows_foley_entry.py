@@ -75,7 +75,7 @@ class WindowsFoleyEntrypointSourceContract(unittest.TestCase):
         self.assertIn("[guid]::NewGuid()", s)
         self.assertIn("foley-windows-acceptance.json", s)
         self.assertIn("PASS_FILE_ONLY_WINDOWS_PREFLIGHT", s)
-        self.assertIn("if ($report.status -cne 'PASS_FILE_ONLY_WINDOWS_PREFLIGHT') { exit 1 }", s)
+        self.assertIn("if ($report.status -cnotin @('PASS_FILE_ONLY_WINDOWS_PREFLIGHT','PASS_WINDOWS_SCRIPT_SELFTEST_ONLY')) { exit 1 }", s)
         self.assertIn("fps_metadata_probed=$false", s)
         self.assertIn("complete_video_window_alignment_verified=$false", s)
         self.assertIn("independent_license_review=$false", s)
@@ -130,8 +130,60 @@ class WindowsFoleyEntrypointSourceContract(unittest.TestCase):
         self.assertIn("cubase_nuendo_import='NOT_RUN'", s)
         self.assertIn("fps_metadata_probed=$false", s)
         self.assertIn("independent_license_review=$false", s)
-        self.assertIn("if ($report.status -cne 'PASS_FILE_ONLY_WINDOWS_PREFLIGHT') { exit 1 }", s)
+        self.assertIn("if ($report.status -cnotin @('PASS_FILE_ONLY_WINDOWS_PREFLIGHT','PASS_WINDOWS_SCRIPT_SELFTEST_ONLY')) { exit 1 }", s)
         self.assertNotIn("PASS_WINDOWS_CUBASE_IMPORT", s)
+
+
+    def test_selftest_is_explicit_not_the_full_foley_gate(self):
+        s = self.source
+        self.assertIn("[switch]$SelfTest", s)
+        self.assertIn("if ($SelfTest.IsPresent)", s)
+        self.assertIn("} else {\n    Enter-Stage 'SOURCE_GIT_IDENTITY'", s)
+        self.assertIn("PASS_WINDOWS_SCRIPT_SELFTEST_ONLY", s)
+        self.assertIn("cubase_nuendo_import='NOT_RUN'", s)
+        self.assertIn("offline_gate='NOT_RUN'", s)
+        self.assertIn("selftest_scope='NOT_RUN'", s)
+
+    def test_native_selftest_uses_only_guid_isolated_synthetic_pcm(self):
+        s = self.source
+        self.assertIn("Invoke-WindowsScriptSelfTest", s)
+        self.assertIn("Join-Path $run 'selftest-pcm-8000hz.wav'", s)
+        self.assertIn("[IO.FileMode]::CreateNew", s)
+        self.assertIn("$writer.Write([uint32]16036)", s)
+        self.assertIn("$writer.Write([uint32]16000)", s)
+        self.assertIn("Read-WavHeader $file", s)
+        self.assertIn("Must-File $fixture", s)
+        self.assertIn("New-Object 'byte[]' 16000", s)
+
+    def test_native_selftest_has_actual_file_sha_mutation_negative(self):
+        s = self.source
+        self.assertIn("$before=Hash-File $file", s)
+        self.assertIn("$mutation.Position=72", s)
+        self.assertIn("$mutation.WriteByte([byte]0x37)", s)
+        self.assertIn("$after=Hash-File $file", s)
+        self.assertIn("$before -ceq $after", s)
+        self.assertIn("WINDOWS_SELFTEST_FAILURE", s)
+
+    def test_native_selftest_covers_ntsc_drop_frame_and_non_drop(self):
+        s = self.source
+        self.assertIn("(Frame-TC 1800 30 $true)", s)
+        self.assertIn("'00:01:00;02'", s)
+        self.assertIn("(Frame-TC 17982 30 $true)", s)
+        self.assertIn("'00:10:00;00'", s)
+        self.assertIn("(Frame-TC 3600 60 $true)", s)
+        self.assertIn("'00:01:00;04'", s)
+        self.assertIn("(Frame-TC 1800 30 $false)", s)
+        self.assertIn("'00:01:00:00'", s)
+
+    def test_selftest_maintains_precise_success_and_failure_outputs(self):
+        s = self.source
+        self.assertIn("Enter-Stage 'WINDOWS_NATIVE_SCRIPT_SELFTEST'", s)
+        self.assertIn("Complete-Stage", s)
+        self.assertIn("$report.failure_code='NONE'", s)
+        self.assertIn("WINDOWS_POWERSHELL_SYNTHETIC_WAV_HASH_SMPTE_ONLY", s)
+        self.assertIn("PASS_WINDOWS_SCRIPT_SELFTEST_ONLY", s)
+        self.assertIn("if ($env:OS -cne 'Windows_NT')", s)
+        self.assertIn("failure_code=[string]$codes[[string]$report.phase]", s)
 
 
 if __name__ == "__main__":

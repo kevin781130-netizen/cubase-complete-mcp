@@ -155,7 +155,14 @@ report = json.loads((p/'report.json').read_text(encoding='utf8'))
 diagnostics = json.loads((p/'diagnostic-report.json').read_text(encoding='utf8'))
 if len(diagnostics['samples']) != 3 or diagnostics['source_head'] != report['source_sha']:
     raise SystemExit('INVALID_THREE_VIDEO_DIAGNOSTICS')
-report['three_clip_weak_label_diagnostics'] = 'PASS_REAL_WEIGHTS_WEAK_LABELS_NOT_GROUND_TRUTH'
+audited = diagnostics.get('human_frame_review_summary') or {}
+if (audited.get('confirmed_visible_positive_clip_count') != 1 or
+        audited.get('excluded_unconfirmed_clip_count') != 2 or
+        audited.get('dataset_recall') != 'NOT_ESTIMATED' or
+        audited.get('production_threshold_changed') is not False):
+    raise SystemExit('INVALID_CHECKSUM_LOCKED_HUMAN_FRAME_REVIEW')
+report['human_frame_review_summary'] = audited
+report['three_clip_weak_label_diagnostics'] = 'PASS_REAL_WEIGHTS_WITH_HASHED_STILL_REVIEW_NOT_GROUND_TRUTH'
 report['diagnostic_report'] = 'diagnostic-report.json'
 report['weak_label_summary'] = diagnostics['summary']
 (p/'report.json').write_text(json.dumps(report, indent=2, ensure_ascii=False)+'\\n',encoding='utf8')

@@ -278,6 +278,9 @@ Sources and attribution:
 
 Output `action-controls-survey.json` records source licenses/credits, individual 2-second window indices, media SHA-256 and contact-sheet checksums; `visual_annotation=PENDING_FOLLOW_UP_REVIEW`, `real_xclip_siglip_on_new_controls=NOT_RUN`. A download/fail-closed or insufficient candidate count is reported, not silently changed to PASS. Only after six-frame contact sheets are inspected should observed positives or negatives be added to a subsequent model comparison. The original 4-video benchmark remains unchanged until then.
 
+**Independent sampled-still review completed 2026-11-04** (evidence: `tests/fixtures/foley_action_controls_visual_review_20261104.json`, every case bound to its contact-sheet SHA-256; Render survey SHA `0529d272`). The 4–6 second **Arakawa jogging** excerpt visually supports a runner; the 4–6 second **R211 subway** excerpt visibly shows door panels moving toward closure; the 0–2 second **Idrija mine** excerpt shows a person opening a hinged door. These are three visually supported action clips, **not yet run through X-CLIP or SigLIP**. The 4–6 second mine-door excerpt shows an already-open door with no discernible opening or closing in the sampled images: a **door-operation-specific negative**, not a universal no-motion/no-SFX negative. The other two examined windows remain indeterminate. All six observations are based on non-blind review of sampled stills, not verified onset times or full-motion ground truth.
+
+
 ## Version and acceptance boundaries
 
 - The **existing** broker/driver was validated on Cubase 15, not Cubase 12–14 or Nuendo. Do not advertise those versions as working until host compatibility and API limitations have been tested.

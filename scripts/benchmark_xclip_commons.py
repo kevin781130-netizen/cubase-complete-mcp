@@ -83,7 +83,7 @@ def fetch_bounded(url: str, target: Path, max_bytes: int = 35_000_000):
     return digest.hexdigest(), size
 
 
-def emit_frame_contact_sheet(clip: Path, label: str):
+def emit_frame_contact_sheet(clip: Path, label: str, *, emit_preview: bool = True):
     """Return true sampled frame indices and log an ephemeral, inspectable JPEG.
 
     This is NOT ground truth. Frame previews appear only in restricted build logs,
@@ -129,9 +129,10 @@ def emit_frame_contact_sheet(clip: Path, label: str):
     digest = hashlib.sha256(payload).hexdigest()
     chunks = [base64.b64encode(payload).decode("ascii")[i:i+1800]
               for i in range(0, len(base64.b64encode(payload).decode("ascii")), 1800)]
-    print(f"XCLIP_FRAME_CONTACT_META={label}:{len(chunks)}:{digest}", flush=True)
-    for i, chunk in enumerate(chunks):
-        print(f"XCLIP_FRAME_CONTACT_CHUNK={label}:{i}:{chunk}", flush=True)
+    if emit_preview:
+        print(f"XCLIP_FRAME_CONTACT_META={label}:{len(chunks)}:{digest}", flush=True)
+        for i, chunk in enumerate(chunks):
+            print(f"XCLIP_FRAME_CONTACT_CHUNK={label}:{i}:{chunk}", flush=True)
     return frames, digest
 
 

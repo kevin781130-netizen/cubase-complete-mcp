@@ -32,7 +32,7 @@ python -m pip install --disable-pip-version-check --no-cache-dir --timeout 45 \
 python -m pip install --disable-pip-version-check --no-cache-dir --timeout 45 \
   'transformers==4.49.0' 'huggingface_hub==0.30.2' \
   'opencv-python-headless==4.10.0.84' 'numpy==1.26.4' \
-  'safetensors==0.5.3' 'Pillow==11.1.0'
+  'safetensors==0.5.3' 'Pillow==11.1.0' 'sentencepiece==0.2.0'
 python - <<'PY'
 import torch, transformers, cv2, huggingface_hub
 print('XCLIP_VERSIONS',torch.__version__,transformers.__version__,cv2.__version__,huggingface_hub.__version__)
@@ -173,6 +173,58 @@ html = html.replace('</html>', '<p><a href="diagnostic-report.json">Three-video 
 print('XCLIP_REAL_LABELED_DIAGNOSTIC_GATE_PASS ' + json.dumps(diagnostics['summary']))
 PY
 
+echo SIGLIP_PAIRED_BASELINE_CONTRACT_TEST_BEGIN
+python -m unittest discover -s tests/python -p 'test_siglip_xclip_baseline.py' -v
+
+# Independent image-only Apache-2.0 baseline. Neither X-CLIP nor the live MCP
+# production thresholds may be changed in response to this tiny benchmark.
+unset HF_HUB_OFFLINE TRANSFORMERS_OFFLINE
+python - <<'PY'
+from pathlib import Path
+from huggingface_hub import snapshot_download
+from compare_siglip_xclip import MODEL_REPO, MODEL_REVISION, verify_model
+# Keep SigLIP weights outside the public static site; no pickle weights.
+directory = Path(snapshot_download(
+    repo_id=MODEL_REPO, revision=MODEL_REVISION,
+    allow_patterns=[
+        "config.json", "model.safetensors", "preprocessor_config.json",
+        "spiece.model", "tokenizer.json", "tokenizer_config.json",
+        "special_tokens_map.json",
+    ]
+))
+checked_sha = verify_model(directory)
+Path('.render-xclip-real-proof/siglip-model-dir.txt').write_text(str(directory), encoding='utf8')
+print('SIGLIP_OFFICIAL_SHA256_PASS=' + checked_sha)
+PY
+export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
+echo SIGLIP_PAIRED_REAL_CPU_INFERENCE_BEGIN
+python scripts/compare_siglip_xclip.py "$(cat "$OUT/siglip-model-dir.txt")" "$FFMPEG" "$FFPROBE"
+
+python - <<'PY'
+from pathlib import Path
+import json
+root = Path('.render-xclip-real-proof')
+xclip = json.loads((root/'report.json').read_text(encoding='utf8'))
+paired = json.loads((root/'siglip-comparison.json').read_text(encoding='utf8'))
+if xclip['source_sha'] != paired['source_sha'] or paired['reviewed_positive_summary']['reviewed_visible_positive_excerpts'] != 2:
+    raise SystemExit('FAIL_SIGLIP_XCLIP_COMPARISON_PROVENANCE')
+if not paired.get('real_pretrained_cpu_inference') or not paired.get('same_source_and_decoded_clips_as_xclip'):
+    raise SystemExit('FAIL_REAL_WEIGHT_FRAME_MATCHING')
+xclip['independent_siglip_baseline'] = {
+    'status':'PASS_REAL_SIGLIP_IMAGE_BASELINE_NO_VIDEO_ACCURACY_CLAIM',
+    'model_repo':paired['model_repo'],
+    'model_revision':paired['model_revision'],
+    'model_safetensors_sha256':paired['model_safetensors_sha256'],
+    'report':'siglip-comparison.json',
+    'reviewed_positive_summary':paired['reviewed_positive_summary']
+}
+(root/'report.json').write_text(json.dumps(xclip,indent=2,ensure_ascii=False)+'\\n',encoding='utf8')
+html = (root/'index.html').read_text(encoding='utf8')
+html = html.replace('</html>', '<p><a href="siglip-comparison.json">SigLIP vs X-CLIP model comparison</a></p></html>')
+(root/'index.html').write_text(html,encoding='utf8')
+print('SIGLIP_REAL_COMPARISON_PASS='+json.dumps(paired['reviewed_positive_summary']))
+PY
+
 # Never publish original/modified media or model weights as public Render assets.
-rm -f "$OUT/opencv-vtest-original.avi" "$OUT/pedestrians-two-seconds.mp4" "$OUT/model-path.txt"
+rm -f "$OUT/opencv-vtest-original.avi" "$OUT/pedestrians-two-seconds.mp4" "$OUT/model-path.txt" "$OUT/siglip-model-dir.txt"
 rmdir "$OUT/_benchmark_media_not_published" 2>/dev/null || true

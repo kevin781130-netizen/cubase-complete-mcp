@@ -129,6 +129,51 @@ def emit_frame_contact_sheet(clip: Path, label: str):
     return frames, digest
 
 
+def load_frame_reviews(path: Path) -> dict:
+    """Use only checksum-locked six-still human reviews, never title labels alone."""
+    data = json.loads(path.read_text(encoding="utf8"))
+    if data.get("schema") != "xclip-visual-review-v1":
+        raise ValueError("Unsupported reviewed-label manifest schema.")
+    reviews = data.get("reviews", [])
+    expected = {sample["id"] for sample in SAMPLES}
+    if len(reviews) != len(expected) or {r.get("id") for r in reviews} != expected:
+        raise ValueError("Visual review must describe each selected video exactly once.")
+    valid_status = {"confirmed_visible", "not_confirmed", "indeterminate"}
+    by_id = {}
+    for row in reviews:
+        label = next(s["label"] for s in SAMPLES if s["id"] == row["id"])
+        if row.get("target_class") != label or row.get("visual_status") not in valid_status:
+            raise ValueError("Unexpected action class or visual status in reviewed manifest.")
+        if not isinstance(row.get("contact_sheet_sha256"), str) or len(row["contact_sheet_sha256"]) != 64:
+            raise ValueError("Reviewed image has no SHA-256 anchor.")
+        if row.get("qualifies_for_reviewed_subset") != (row["visual_status"] == "confirmed_visible"):
+            raise ValueError("Only independently confirmed visible actions may join the reviewed subset.")
+        by_id[row["id"]] = row
+    return by_id
+
+
+def summarize_reviewed_subset(rows: list[dict]) -> dict:
+    confirmed = [row for row in rows
+                 if row["visual_review"]["visual_status"] == "confirmed_visible"]
+    excluded = [row["id"] for row in rows
+                if row["visual_review"]["visual_status"] != "confirmed_visible"]
+    count = len(confirmed)
+    matched = sum(bool(row["default_threshold_candidate_matches_weak_label"])
+                  for row in confirmed)
+    return {
+        "review_method": "six sampled stills, model outcomes not blinded",
+        "confirmed_visible_positive_clip_count": count,
+        "confirmed_visible_default_threshold_match_count": matched,
+        "confirmed_visible_default_threshold_potential_miss_count": count - matched,
+        "excluded_unconfirmed_clip_count": len(excluded),
+        "excluded_ids": excluded,
+        "dataset_precision": "NOT_ESTIMATED",
+        "dataset_recall": "NOT_ESTIMATED",
+        "accuracy_verdict": "INSUFFICIENT_VALIDATED_SAMPLE_SIZE",
+        "production_threshold_changed": False,
+    }
+
+
 def predicted_action(trace: dict, min_score: float, min_margin: float):
     top = trace["ranking"][0]
     if top in {"idle_speech", "quiet_scene"}:
@@ -217,6 +262,7 @@ def main():
     processor = XCLIPProcessor.from_pretrained(str(model_dir), local_files_only=True,
                                                trust_remote_code=False)
     model.eval()
+    reviews = load_frame_reviews(Path("tests/fixtures/xclip_visual_review_v1.json"))
     rows = []
     for sample in SAMPLES:
         name = sample["id"]
@@ -236,6 +282,10 @@ def main():
         if not (frame_count >= 8 and frame_count <= 48):
             raise ValueError("Reencoded sample has unexpected frame count.")
         audited_frames, contact_hash = emit_frame_contact_sheet(clip, name)
+        review = reviews[name]
+        if (review["contact_sheet_sha256"] != contact_hash or
+                review["sampled_frame_indices"] != audited_frames):
+            raise ValueError("Visual review provenance mismatch: video/frames changed; re-review required.")
         traces = []
         cues, windows = provider.classify(clip, model_dir, numerator, denominator,
                                           frame_count, 0.48, 0.12,
@@ -253,7 +303,8 @@ def main():
             "window_count": windows,
             "contact_sheet_sha256": contact_hash,
             "contact_sheet_frame_indices": audited_frames,
-            "visual_verification_status": "AWAITING_INDEPENDENT_HUMAN_FRAME_REVIEW",
+            "visual_review": review,
+            "visual_verification_status": "SIX_STILL_FRAME_REVIEW_ONLY_NO_FULL_VIDEO_PLAYBACK",
         })
         rows.append(result)
         print("XCLIP_WEAK_LABEL_RESULT=" +
@@ -271,7 +322,8 @@ def main():
         "real_pretrained_inference": True,
         "samples": rows,
         "summary": aggregate(rows),
-        "sample_labels": "Wikimedia Commons titles/descriptions only; selected first 2 seconds unverified by a human",
+        "human_frame_review_summary": summarize_reviewed_subset(rows),
+        "sample_labels": "Source titles are weak labels. A separate checksum-locked human review of six stills per two-second clip distinguishes visible, not-confirmed, and indeterminate examples.",
         "ground_truth_temporal_coverage": "NOT_ANNOTATED",
         "measured_dataset_recall_or_precision": "NOT_CLAIMED",
         "action_onset_alignment": "NOT_EVALUATED",

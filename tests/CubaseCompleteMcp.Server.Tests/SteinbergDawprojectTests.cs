@@ -98,6 +98,45 @@ public sealed class SteinbergDawprojectTests
         finally { Directory.Delete(root, true); }
     }
 
+    [Fact]
+    public void DAW06_MalformedRiffLengthAndBlockAlignmentRefusePackaging()
+    {
+        var root = MakeRoot();
+        try
+        {
+            var source = Path.Combine(root, "kick.wav");
+            var original = Wav();
+            File.WriteAllBytes(source, original);
+            var draft = Path.Combine(root, "draft.json");
+            Assert.Equal("OkDraft", new SteinbergSampleTools().Plan(root, source, draft, 120)["status"]!.GetValue<string>());
+            var output = Path.Combine(root, "rejected.dawproject");
+            var exporter = new SteinbergDawprojectTools();
+
+            var corruptLength = (byte[])original.Clone();
+            corruptLength[4] = 0; // RIFF length must be 68, not 0.
+            File.WriteAllBytes(source, corruptLength);
+            Assert.Equal("EXPORT_REJECTED", exporter.Export(root, [draft], output, true)["code"]!.GetValue<string>());
+            Assert.False(File.Exists(output));
+
+            var corruptAlignment = (byte[])original.Clone();
+            corruptAlignment[32] = 4; // 16-bit mono expects 2-byte block alignment.
+            File.WriteAllBytes(source, corruptAlignment);
+            Assert.Equal("EXPORT_REJECTED", exporter.Export(root, [draft], output, true)["code"]!.GetValue<string>());
+            Assert.False(File.Exists(output));
+
+            var corruptByteRate = (byte[])original.Clone();
+            corruptByteRate[28] = 0; // 48k x 2 bytes must be 96000 bytes/sec.
+            File.WriteAllBytes(source, corruptByteRate);
+            Assert.Equal("EXPORT_REJECTED", exporter.Export(root, [draft], output, true)["code"]!.GetValue<string>());
+            Assert.False(File.Exists(output));
+
+            // Ensure all failures left the approved source path and the output untouched.
+            File.WriteAllBytes(source, original);
+            Assert.Equal("OkFileOnly", exporter.Export(root, [draft], output, true)["status"]!.GetValue<string>());
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     private static string MakeRoot()
     {
         var root = Path.Combine(Path.GetTempPath(), "steinberg-dawproject-" + Guid.NewGuid().ToString("N"));

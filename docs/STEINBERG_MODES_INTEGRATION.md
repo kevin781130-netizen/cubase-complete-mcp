@@ -8,8 +8,8 @@ This branch extends the existing **Cubase Complete MCP** server with optional **
   - `steinberg_modes_status`: report local provider readiness and both modes.
   - `steinberg_arrange_tempo`: invoke GrooveMap Next V3 `groovemap-next suno --drums <wav> --out <prefix> --device cpu --checkpoint <trusted-local.ckpt>` to generate tempo/drum MIDI and timing JSON. A local checkpoint is mandatory, not auto-downloaded.
   - `steinberg_arrange_midi`: invoke MIDIVOLT's deterministic `midivolt-prompt --prompt <text> --out <file.mid>` to generate an independent, editable arrangement MIDI file.
-  - **Not implemented:** sample-library search, placing WAV samples on the Cubase/Nuendo timeline, combining MIDI stems into a native project, automatic model installation, or changing a running DAW project.
-- **Foley (declared, not implemented):** video spotting, sound-effect selection/generation, cue-to-timecode event manifests, and host import are later slices.
+  - **Implemented in later slices:** metadata-only sample search, sample placement drafts, and portable DAWproject audio-track export. **Still not implemented:** automatic WAV placement in a running DAW, native project modifications, automatic model installation.
+- **Foley (spotting draft only):** caller-supplied SFX cue objects become frame-accurate, review-only timecode manifests via `steinberg_foley_spot`. No automatic video analysis, SFX selection/generation or DAW host import yet.
 
 ## Source boundaries
 
@@ -125,6 +125,36 @@ The script performs a **strictly offline, locked restore** using an empty local 
 ## Slice 6 — source-safety hardening before real .NET acceptance
 
 The WAV reader now rejects a false RIFF byte count, truncated/misaligned chunk padding, duplicate `fmt`/`data` chunks, unsupported sample formats, and contradictory channel count / sample size / byte rate / block alignment. `DAW06` regression cases cover three corruptions and then assert that the same approved original WAV can still be packaged. These tests are committed but **NOT_EXECUTED** in this environment without the .NET SDK. No actual Cubase/Nuendo host import has run.
+
+## Slice 11 — Foley video frame-to-SFX cue spotting (metadata-only)
+
+**MCP tool**: `steinberg_foley_spot` (implemented in `SteinbergFoleyTools.cs`).
+
+- Input: an existing local video file path (MP4, MOV, MKV or MXF), *caller-supplied* frame-rate numerator and denominator, *caller-supplied* total frame count, and a JSON **array of cue objects**. The video is **not opened or decoded**. Header/codec, actual FPS and frame count are **not verified**.
+- Cue schema: `frame` (integer, **zero-based absolute frame index**), optional `duration_frames` (integer, default 0), `event_label` (plain text), `track` (one of footsteps, impacts, cloth, doors, ambience, vehicles, other), `sfx_query` (search phrase for a human or future external audio library matcher).
+- Converts each input frame to seconds using `frame * fps_denominator / fps_numerator`, rounded to 9 decimals for the review sheet. Handles fractional video rates such as 24000/1001, 30000/1001 and 60000/1001. This is **not drop-frame or SMPTE timecode parsing**; no timeline start offset or variable-FPS conversion is performed.
+- Output: **new** `steinberg-foley-cues-v1` JSON file with chronologically sorted observations, original frames and input indices, matching queries, `sample_path: null`, `selection_status: unmatched_requires_review`, `status: draft_requires_approval` and `host_action: none`. Never overwrites prior files. Does not silently invent clips or sound samples.
+- Limits: 1–128 cues per call, up to 64 KiB JSON, frames must stay inside the declared video range. Actual detection, frame probing, sample search, matching, licensing, and seconds-based DAWproject audio placement belong to independent future integrations. Optional CutPilot or visual detectors can generate the **input** cue JSON without copying them into this repository.
+
+Example (one event at absolute frame 120 in a 30000/1001 fps video):
+
+```json
+{
+  "tool": "steinberg_foley_spot",
+  "arguments": {
+    "video_path": "C:\\\\Video\\\\scene.mp4",
+    "output_manifest": "C:\\\\Exports\\\\scene-foley-cues.json",
+    "fps_numerator": 30000,
+    "fps_denominator": 1001,
+    "video_frame_count": 5000,
+    "cues_json": "[{\\\"frame\\\":120,\\\"duration_frames\\\":12,\\\"event_label\\\":\\\"Door closes\\\",\\\"track\\\":\\\"doors\\\",\\\"sfx_query\\\":\\\"wood door slam\\\"}]"
+  }
+}
+```
+
+The source can be a human spotting pass or an *independent* computer-vision detector. This slice does not run or claim such detection. A draft is not a playable DAW session.
+
+**Current gate**: New `SteinbergFoleyTests` are committed; re-run the Linux Render .NET build/tests on the exact new SHA before reporting PASS. Windows Cubase/Nuendo remains NOT_RUN.
 
 ## Version and acceptance boundaries
 

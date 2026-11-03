@@ -166,7 +166,7 @@ report['human_frame_review_summary'] = audited
 report['three_clip_weak_label_diagnostics'] = 'PASS_REAL_WEIGHTS_WITH_HASHED_STILL_REVIEW_NOT_GROUND_TRUTH'
 report['diagnostic_report'] = 'diagnostic-report.json'
 report['weak_label_summary'] = diagnostics['summary']
-(p/'report.json').write_text(json.dumps(report, indent=2, ensure_ascii=False)+'\\n',encoding='utf8')
+(p/'report.json').write_text(json.dumps(report, indent=2, ensure_ascii=False)+'\n',encoding='utf8')
 html = (p/'index.html').read_text(encoding='utf8')
 html = html.replace('</html>', '<p><a href="diagnostic-report.json">Three-video raw logits & possible misses</a></p></html>')
 (p/'index.html').write_text(html, encoding='utf8')
@@ -220,12 +220,18 @@ xclip['independent_siglip_baseline'] = {
     'report':'siglip-comparison.json',
     'reviewed_positive_summary':paired['reviewed_positive_summary']
 }
-(root/'report.json').write_text(json.dumps(xclip,indent=2,ensure_ascii=False)+'\\n',encoding='utf8')
+(root/'report.json').write_text(json.dumps(xclip,indent=2,ensure_ascii=False)+'\n',encoding='utf8')
 html = (root/'index.html').read_text(encoding='utf8')
 html = html.replace('</html>', '<p><a href="siglip-comparison.json">SigLIP vs X-CLIP model comparison</a></p></html>')
 (root/'index.html').write_text(html,encoding='utf8')
 print('SIGLIP_REAL_COMPARISON_PASS='+json.dumps(paired['reviewed_positive_summary']))
 PY
+
+# A static-site build can report success while its JSON is malformed: fail closed.
+python3 -m json.tool "$OUT/report.json" >/dev/null
+python3 -m json.tool "$OUT/diagnostic-report.json" >/dev/null
+python3 -m json.tool "$OUT/siglip-comparison.json" >/dev/null
+echo STEINBERG_ALL_PUBLISHED_EVIDENCE_JSON_VALID
 
 # Never publish original/modified media or model weights as public Render assets.
 rm -f "$OUT/opencv-vtest-original.avi" "$OUT/pedestrians-two-seconds.mp4" "$OUT/model-path.txt" "$OUT/siglip-model-dir.txt"

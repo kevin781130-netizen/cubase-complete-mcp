@@ -13,10 +13,12 @@ export DOTNET_CLI_TELEMETRY_OPTOUT=1
 mkdir -p "$DOTNET_CLI_HOME" "$DOTNET_ROOT" .render-steinberg-proof
 
 HEAD="$(git rev-parse HEAD)"
-BRANCH="$(git branch --show-current)"
+BRANCH="$(git symbolic-ref -q --short HEAD || true)"
 printf 'STEINBERG_GATE_SOURCE_HEAD=%s\n' "$HEAD"
-printf 'STEINBERG_GATE_SOURCE_BRANCH=%s\n' "$BRANCH"
-if [ "$BRANCH" != "feat/steinberg-dualmode-adapters-20261104" ]; then
+printf 'STEINBERG_GATE_SOURCE_BRANCH=%s\n' "${BRANCH:-DETACHED_HEAD}"
+# Render checks out the pinned SHA in detached-HEAD mode. Its service branch
+# configuration selects the branch; a detached HEAD is expected, not failure.
+if [ -n "$BRANCH" ] && [ "$BRANCH" != "feat/steinberg-dualmode-adapters-20261104" ]; then
   echo 'SOURCE_BRANCH_MISMATCH'; exit 50
 fi
 

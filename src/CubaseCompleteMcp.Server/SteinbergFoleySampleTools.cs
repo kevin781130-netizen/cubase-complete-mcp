@@ -191,6 +191,14 @@ public sealed class SteinbergFoleySampleTools
             return 0;
         var matchingDirection = action == "opening_door" ? open : close;
         var score = matchingDirection ? 100 : 20;
+        // Direct open/close tags describe a door action more specifically
+        // than a generic latch or creak; keep the ranking metadata-only.
+        if (action == "opening_door" && Regex.IsMatch(name,
+                @"(?<![a-z])(?:open|opening)(?![a-z])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+            score += 30;
+        if (action == "closing_door" && Regex.IsMatch(name,
+                @"(?<![a-z])(?:close|closing|shut|slam)(?![a-z])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+            score += 30;
         if (name.Contains("door", StringComparison.OrdinalIgnoreCase)) score += 20;
         if (name.Contains("wood", StringComparison.OrdinalIgnoreCase)) score += 1;
         return score;

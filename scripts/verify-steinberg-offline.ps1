@@ -90,12 +90,16 @@ try {
     # A green build with 0 matching tests is not sufficient evidence.
     # Check named schema-positive and schema-negative cases independently.
     $requiredSchemaTests = @(
-        'DAW04_ExportedXmlValidatesAgainstOfficialProjectAndMetadataSchemas',
-        'DAW05_OfficialProjectSchemaRejectsUnknownXml'
+        'SteinbergDawprojectSchemaTests.DAW04_ExportedXmlValidatesAgainstOfficialProjectAndMetadataSchemas',
+        'SteinbergDawprojectSchemaTests.DAW05_OfficialProjectSchemaRejectsUnknownXml'
     )
     $passedNames = @($passed | ForEach-Object { $_.GetAttribute('testName') })
     foreach ($name in $requiredSchemaTests) {
-        if ($passedNames -notcontains $name) {
+        # VSTest TRX testName normally includes the class/namespace. Exact comparison
+        # to the bare method name produces a false failure even when that case passed.
+        $pattern = '(^|[.])' + [regex]::Escape($name) + '($|\()'
+        $matches = @($passedNames | Where-Object { $_ -match $pattern })
+        if ($matches.Count -eq 0) {
             $report.official_xsd_test = 'FAIL_NOT_EXECUTED'
             throw "Required pinned XSD test did not run and pass: $name"
         }

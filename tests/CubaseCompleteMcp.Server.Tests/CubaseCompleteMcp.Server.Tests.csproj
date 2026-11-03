@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <None Include="../DawprojectSchema/*.xsd" Link="DAWprojectSchema/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../scripts/xclip_foley_action_provider.py" Link="providers/xclip_foley_action_provider.py" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../scripts/cutpilot_foley_scene_provider.py" Link="providers/cutpilot_foley_scene_provider.py" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

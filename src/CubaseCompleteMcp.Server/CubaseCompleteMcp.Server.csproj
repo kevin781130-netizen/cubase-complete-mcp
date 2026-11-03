@@ -6,6 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="CubaseCompleteMcp.Server.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="../../scripts/cutpilot_foley_scene_provider.py"
              Link="providers/cutpilot_foley_scene_provider.py"
              CopyToOutputDirectory="PreserveNewest" />

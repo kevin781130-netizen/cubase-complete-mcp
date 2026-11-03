@@ -32,7 +32,7 @@ python -m pip install --disable-pip-version-check --no-cache-dir --timeout 45 \
 python -m pip install --disable-pip-version-check --no-cache-dir --timeout 45 \
   'transformers==4.49.0' 'huggingface_hub==0.30.2' \
   'opencv-python-headless==4.10.0.84' 'numpy==1.26.4' \
-  'safetensors==0.5.3' 'Pillow==11.1.0' 'sentencepiece==0.2.0'
+  'safetensors==0.5.3' 'Pillow==11.1.0' 'sentencepiece==0.2.0' 'protobuf==4.25.5'
 python - <<'PY'
 import torch, transformers, cv2, huggingface_hub
 print('XCLIP_VERSIONS',torch.__version__,transformers.__version__,cv2.__version__,huggingface_hub.__version__)

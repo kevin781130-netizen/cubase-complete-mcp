@@ -183,7 +183,10 @@ public sealed class SteinbergFoleySampleTests
             var library = Directory.CreateDirectory(Path.Combine(root, "Samples")).FullName;
             var folder = Directory.CreateDirectory(Path.Combine(library, "Doors")).FullName;
             var good = Sample(folder, "door_open_valid.wav");
-            File.WriteAllBytes(Path.Combine(folder, "door_open_truncated.wav"), new byte[44]);
+            var truncated = new byte[44];
+            "RIFF"u8.CopyTo(truncated.AsSpan(0, 4));
+            "WAVE"u8.CopyTo(truncated.AsSpan(8, 4));
+            File.WriteAllBytes(Path.Combine(folder, "door_open_truncated.wav"), truncated);
             var inconsistent = Sample(folder, "door_open_bad_rate.wav");
             var bytes = File.ReadAllBytes(inconsistent);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(28, 4), 999);

@@ -100,6 +100,28 @@ Upstream DAWproject specification: https://github.com/bitwig/dawproject
 Official Cubase import reference: https://www.steinberg.help/r/cubase-pro/15.0/en/cubase_nuendo/topics/exchanging_files_with_other_applications/exchanging_files_with_other_applications_importing_dawproject_files_t.html
 Official Nuendo import reference: https://www.steinberg.help/r/nuendo/15.0/en/cubase_nuendo/topics/exchanging_files_with_other_applications/exchanging_files_with_other_applications_importing_dawproject_files_t.html
 
+## Slice 5 — pinned official XSD and Windows offline preflight
+
+Official DAWproject 1.0 schemas are included as **test-only fixtures**, not production dependencies:
+
+- `tests/DawprojectSchema/Project.xsd`
+- `tests/DawprojectSchema/MetaData.xsd`
+- `tests/DawprojectSchema/LICENSE.bitwig.txt`
+
+Source: `bitwig/dawproject` commit `ee4dcdde75940f30e14e55401a26955a58b8322b` (MIT). Do not silently replace the pinned schemas with current upstream files.
+
+`SteinbergDawprojectSchemaTests` exports an actual 1-track WAV fixture through the project's own `SteinbergSampleTools.Plan` + `SteinbergDawprojectTools.Export`, then validates `project.xml` and `metadata.xml` with `System.Xml.Schema`. It also has a negative case to confirm malformed XML is rejected.
+
+On Windows with a compatible .NET 8 SDK, from the repository root:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-steinberg-offline.ps1
+```
+
+The script performs lockfile-aware restore, solution build, all `Steinberg`-named tests and pinned-schema validation; it writes a machine-readable report under the user's temporary directory. It does not call GitHub Actions, upload evidence, run Cubase/Nuendo, or claim real timeline acceptance. NuGet restore may need network access if packages are not locally cached.
+
+**Current truth:** The agent's execution container has **no `dotnet` executable** and cannot run this Windows-targeted .NET solution. Accordingly the new .NET build and pinned official XSD tests are **NOT_RUN** here; source/test-file presence is not a PASS. A report of `PASS_OFFLINE_ONLY` is issued **only** after the script really returns success.
+
 ## Version and acceptance boundaries
 
 - The **existing** broker/driver was validated on Cubase 15, not Cubase 12–14 or Nuendo. Do not advertise those versions as working until host compatibility and API limitations have been tested.

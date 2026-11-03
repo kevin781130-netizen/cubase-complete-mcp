@@ -22,6 +22,9 @@ $report = [ordered]@{
     build = 'NOT_RUN'
     mcp_tests = 'NOT_RUN'
     official_xsd_test = 'NOT_RUN'
+    executed_tests = 0
+    passed_tests = 0
+    trx_path = ''
     host_cubase_nuendo = 'NOT_RUN'
     github_actions = 'NOT_USED'
     message = ''
@@ -60,11 +63,42 @@ try {
     if ($LASTEXITCODE -ne 0) { $report.build = 'FAIL'; throw 'dotnet build failed.' }
     $report.build = 'PASS'
 
-    & dotnet test $testProject -c Release --no-build --no-restore --filter 'FullyQualifiedName~Steinberg' --logger 'trx;LogFileName=steinberg-preflight.trx' --results-directory $ResultsDirectory
+    # Each run gets a fresh TRX name, preventing a stale passing report from being reused.
+    $trxName = 'steinberg-preflight-' + ([guid]::NewGuid().ToString('N')) + '.trx'
+    $trxPath = Join-Path $ResultsDirectory $trxName
+    $report.trx_path = $trxPath
+    & dotnet test $testProject -c Release --no-build --no-restore --filter 'FullyQualifiedName~Steinberg' --logger "trx;LogFileName=$trxName" --results-directory $ResultsDirectory
     if ($LASTEXITCODE -ne 0) {
         $report.mcp_tests = 'FAIL'
         $report.official_xsd_test = 'FAIL_OR_NOT_RUN'
         throw 'One or more Steinberg MCP tests or pinned DAWproject XSD validations failed.'
+    }
+    if (-not (Test-Path -LiteralPath $trxPath -PathType Leaf)) {
+        $report.mcp_tests = 'FAIL_NO_TRX'
+        throw 'dotnet test exited successfully without writing the expected fresh TRX report.'
+    }
+
+    [xml]$trx = Get-Content -LiteralPath $trxPath -Raw
+    $results = @($trx.SelectNodes("//*[local-name()='UnitTestResult']"))
+    $report.executed_tests = $results.Count
+    $passed = @($results | Where-Object { $_.GetAttribute('outcome') -eq 'Passed' })
+    $report.passed_tests = $passed.Count
+    if ($results.Count -eq 0 -or $passed.Count -ne $results.Count) {
+        $report.mcp_tests = 'FAIL_OR_ZERO_TESTS'
+        throw "TRX shows $($passed.Count)/$($results.Count) passed; an empty or incomplete test set is not a PASS."
+    }
+    # A green build with 0 matching tests is not sufficient evidence.
+    # Check named schema-positive and schema-negative cases independently.
+    $requiredSchemaTests = @(
+        'DAW04_ExportedXmlValidatesAgainstOfficialProjectAndMetadataSchemas',
+        'DAW05_OfficialProjectSchemaRejectsUnknownXml'
+    )
+    $passedNames = @($passed | ForEach-Object { $_.GetAttribute('testName') })
+    foreach ($name in $requiredSchemaTests) {
+        if ($passedNames -notcontains $name) {
+            $report.official_xsd_test = 'FAIL_NOT_EXECUTED'
+            throw "Required pinned XSD test did not run and pass: $name"
+        }
     }
     $report.mcp_tests = 'PASS'
     $report.official_xsd_test = 'PASS'

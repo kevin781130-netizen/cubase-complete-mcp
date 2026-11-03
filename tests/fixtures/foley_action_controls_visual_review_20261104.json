@@ -1,0 +1,131 @@
+{
+  "schema": "foley-visual-action-controls-review-v1",
+  "survey_source_head": "0529d272d2e56d6b4200475ea191048a02ef9458",
+  "review_date": "2026-11-04",
+  "method": "Non-blind manual interpretation of six sampled JPEG stills for each verified 12fps, 2-second source-video window; no complete-motion playback or audio",
+  "caution": "Actions visually supported by successive stills only. Not precise action onsets, event timestamps, audio truth, statistically independent annotation or calibrated recognition accuracy.",
+  "media_stored": false,
+  "original_footage_distributed": false,
+  "model_inference_on_these_windows": "NOT_RUN",
+  "production_threshold_changed": false,
+  "verified_positive_count": 3,
+  "verified_class_specific_negative_count": 1,
+  "unresolved_window_count": 2,
+  "windows": [
+    {
+      "id": "arakawa_jogging_at_0",
+      "source_id": "arakawa_jogging",
+      "class_under_review": "running",
+      "start_seconds": 0,
+      "contact_sheet_sha256": "0267b3fd7d80cea86496b1dc308e679fa140f72bf198ca4b3219cc6b7107a087",
+      "sampled_frame_indices": [
+        0,
+        5,
+        9,
+        14,
+        18,
+        23
+      ],
+      "visual_status": "indeterminate",
+      "include_in_positive_denominator": false,
+      "review": "One distant person crosses the riverside path; individual stride is too small for confident running confirmation from six stills."
+    },
+    {
+      "id": "arakawa_jogging_at_4",
+      "source_id": "arakawa_jogging",
+      "class_under_review": "running",
+      "start_seconds": 4,
+      "contact_sheet_sha256": "8336867f129dccaa4df154a0dfcba4345d9f68bfbfc072ae60598c8b0bec88c3",
+      "sampled_frame_indices": [
+        0,
+        5,
+        9,
+        14,
+        18,
+        23
+      ],
+      "visual_status": "confirmed_visible",
+      "include_in_positive_denominator": true,
+      "review": "Foreground runner travels along the path with alternating legs/stride and successive displacement, consistent with jogging/running."
+    },
+    {
+      "id": "subway_door_at_0",
+      "source_id": "subway_door",
+      "class_under_review": "closing_door",
+      "start_seconds": 0,
+      "contact_sheet_sha256": "59f399de53548e416ae986c5b03afaa1422ef8cf56ad8221b59175ed824ac91b",
+      "sampled_frame_indices": [
+        0,
+        5,
+        9,
+        14,
+        18,
+        23
+      ],
+      "visual_status": "indeterminate",
+      "include_in_positive_denominator": false,
+      "review": "Most sampled views show closed train doors; later lighting/edge positions change slightly. No definite closing cycle confirmed."
+    },
+    {
+      "id": "subway_door_at_4",
+      "source_id": "subway_door",
+      "class_under_review": "closing_door",
+      "start_seconds": 4,
+      "contact_sheet_sha256": "815accef80fd84c3de465fea6bca700e13daeaa79d9a29848e9c9497df0d659e",
+      "sampled_frame_indices": [
+        0,
+        5,
+        9,
+        14,
+        18,
+        23
+      ],
+      "visual_status": "confirmed_visible",
+      "include_in_positive_denominator": true,
+      "review": "Train doorway visibly moves from fully open toward closing as panels converge, consistent with a closing door cycle."
+    },
+    {
+      "id": "mine_door_at_0",
+      "source_id": "mine_door",
+      "class_under_review": "opening_door",
+      "start_seconds": 0,
+      "contact_sheet_sha256": "4f23b08534e7e3f595128b61e592305e2c8b33a734696af4b62bd5377b740937",
+      "sampled_frame_indices": [
+        0,
+        5,
+        9,
+        14,
+        18,
+        23
+      ],
+      "visual_status": "confirmed_visible",
+      "include_in_positive_denominator": true,
+      "review": "A person appears to operate a hinged mine door; the opening/gap expands across sampled views, consistent with opening."
+    },
+    {
+      "id": "mine_door_at_4",
+      "source_id": "mine_door",
+      "class_under_review": "opening_or_closing_door",
+      "start_seconds": 4,
+      "contact_sheet_sha256": "8e13e25d640d917ee1131d96aee72d57a472a530051ef53c7bd060f8b38bb09e",
+      "sampled_frame_indices": [
+        0,
+        5,
+        9,
+        14,
+        18,
+        23
+      ],
+      "visual_status": "confirmed_class_specific_negative",
+      "include_in_positive_denominator": false,
+      "review": "The mine door appears open in each sampled image without discernible panel motion. Negative only for visibly opening/closing the door during this segment; not a general no-action/no-sound negative."
+    }
+  ],
+  "prior_narrow_negative": {
+    "id": "nhs_intro_no_clapping",
+    "source_fixture": "tests/fixtures/xclip_candidate_survey_20261104.json",
+    "contact_sheet_sha256": "a3352ba56bba47fe4048ac4fa9702db421e97b6f08973fdf5a658354559780af",
+    "visual_status": "no_visible_clapping",
+    "caveat": "Intro graphics; no confirmed clapping in first 2 seconds, not guaranteed absence of every physical or Foley action"
+  }
+}

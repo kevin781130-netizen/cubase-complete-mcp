@@ -246,33 +246,49 @@ public sealed class SteinbergDawprojectTools
         using var reader = new BinaryReader(file);
         if (file.Length < 44 || new string(reader.ReadChars(4)) != "RIFF")
             throw new InvalidDataException("Only standard RIFF WAV files are supported.");
-        reader.ReadUInt32();
+        var riffBytes = reader.ReadUInt32();
+        if (riffBytes != file.Length - 8)
+            throw new InvalidDataException("RIFF declared size does not match the source file.");
         if (new string(reader.ReadChars(4)) != "WAVE")
             throw new InvalidDataException("Invalid WAV signature.");
         int channels = 0, rate = 0, blockAlign = 0;
         long dataBytes = -1;
+        bool sawFormat = false;
         while (file.Position + 8 <= file.Length)
         {
             var chunk = new string(reader.ReadChars(4));
             var size = reader.ReadUInt32();
             var end = checked(file.Position + size);
-            if (end > file.Length) throw new InvalidDataException("Truncated WAV chunk.");
+            if (end > file.Length || end + (size % 2) > file.Length)
+                throw new InvalidDataException("Truncated WAV chunk or alignment pad.");
             if (chunk == "fmt ")
             {
-                if (size < 16) throw new InvalidDataException("Invalid WAV fmt.");
+                if (sawFormat || size < 16) throw new InvalidDataException("Invalid or duplicate WAV fmt.");
+                sawFormat = true;
                 var format = reader.ReadUInt16();
                 channels = reader.ReadUInt16();
                 rate = reader.ReadInt32();
-                reader.ReadInt32();
+                var byteRate = reader.ReadInt32();
                 blockAlign = reader.ReadUInt16();
-                reader.ReadUInt16();
+                var bitsPerSample = reader.ReadUInt16();
                 if (format is not (1 or 3))
                     throw new InvalidDataException("Only PCM / IEEE-float RIFF WAV is supported.");
+                if (channels is < 1 or > 2 || rate is < 8000 or > 384000 ||
+                    !(format == 1 && (bitsPerSample is 8 or 16 or 24 or 32) ||
+                      format == 3 && (bitsPerSample is 32 or 64)))
+                    throw new InvalidDataException("Unsupported WAV audio parameters.");
+                var expectedAlign = channels * (bitsPerSample / 8);
+                if (blockAlign != expectedAlign || byteRate != (long)rate * expectedAlign)
+                    throw new InvalidDataException("WAV block alignment or byte rate is inconsistent.");
             }
-            else if (chunk == "data") dataBytes = size;
+            else if (chunk == "data")
+            {
+                if (dataBytes >= 0) throw new InvalidDataException("Multiple WAV data chunks are not supported.");
+                dataBytes = size;
+            }
             file.Position = end + (size % 2);
         }
-        if (channels is < 1 or > 2 || rate is < 8000 or > 384000 || blockAlign < channels ||
+        if (!sawFormat || channels is < 1 or > 2 || rate is < 8000 or > 384000 || blockAlign < channels ||
             dataBytes < 1 || dataBytes % blockAlign != 0)
             throw new InvalidDataException("Missing or unsupported WAV audio format.");
         return (channels, rate, dataBytes / (double)(blockAlign * rate));

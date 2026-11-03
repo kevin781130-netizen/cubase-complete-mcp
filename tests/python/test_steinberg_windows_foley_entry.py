@@ -81,5 +81,58 @@ class WindowsFoleyEntrypointSourceContract(unittest.TestCase):
         self.assertIn("independent_license_review=$false", s)
 
 
+    def test_structured_stage_history_and_failure_cause(self):
+        s = self.source
+        self.assertIn("stage_history=@", s)
+        self.assertIn("function Enter-Stage", s)
+        self.assertIn("function Complete-Stage", s)
+        for stage in ("WINDOWS_HOST", "SOURCE_GIT_IDENTITY",
+                      "DOTNET_OFFLINE_XSD_AND_MCP", "HUMAN_REVIEW_INPUTS",
+                      "VIDEO_AND_AUDIO_SHA256_TIMECODE_TRACKS"):
+            self.assertIn("Enter-Stage '"+stage+"'", s)
+        self.assertIn("failure_code='NOT_RUN'", s)
+        self.assertIn("$report.failure_code='NONE'", s)
+        self.assertIn("UNCLASSIFIED_PRECHECK_FAILURE", s)
+        self.assertIn("$report.stage_history[-1].status='BLOCKED'", s)
+        self.assertIn("$report.error_type=$_.Exception.GetType().FullName", s)
+
+    def test_environment_diagnostics_are_non_destructive(self):
+        s = self.source
+        for item in ("powershell_version", "os_version", "is_64bit_os",
+                     "dotnet_sdk_version", "git_version"):
+            self.assertIn(item, s)
+        self.assertIn("[Environment]::OSVersion.Version.ToString()", s)
+        self.assertIn("Get-Command dotnet -ErrorAction SilentlyContinue", s)
+        self.assertIn("Get-Command git -ErrorAction SilentlyContinue", s)
+        self.assertNotIn("Get-ChildItem Env:", s)
+
+    def test_retain_real_offline_log_and_evidence_in_current_run(self):
+        s = self.source
+        self.assertIn("dotnet-offline-output.log", s)
+        self.assertIn("$report.offline_output_log=$offlineLog", s)
+        self.assertIn("-ResultsDirectory $offlineDir *> $offlineLog", s)
+        self.assertIn("$exitCode=$LASTEXITCODE", s)
+        self.assertIn("steinberg-offline-verification.json", s)
+        self.assertIn("'BLOCKED_MISSING_HUMAN_REVIEW_INPUTS'", s)
+        self.assertIn("ConvertTo-Json -Depth 12", s)
+
+    def test_fail_closed_when_offline_gate_has_failing_or_stale_evidence(self):
+        s = self.source
+        self.assertIn("$exitCode -ne 0", s)
+        self.assertIn("$proof.status -cne 'PASS_OFFLINE_ONLY'", s)
+        self.assertIn("$proof.passed_tests -ne [int]$proof.executed_tests", s)
+        self.assertIn("$proof.official_xsd_test -cne 'PASS'", s)
+        self.assertIn("$proof.head -cne $report.source_head", s)
+        self.assertIn("$report.status='ENVIRONMENT_BLOCKED'", s)
+
+    def test_phase_names_and_status_cannot_fake_windows_host_acceptance(self):
+        s = self.source
+        self.assertIn("cubase_nuendo_import='NOT_RUN'", s)
+        self.assertIn("fps_metadata_probed=$false", s)
+        self.assertIn("independent_license_review=$false", s)
+        self.assertIn("if ($report.status -cne 'PASS_FILE_ONLY_WINDOWS_PREFLIGHT') { exit 1 }", s)
+        self.assertNotIn("PASS_WINDOWS_CUBASE_IMPORT", s)
+
+
 if __name__ == "__main__":
     unittest.main()

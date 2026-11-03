@@ -67,7 +67,7 @@ function Check-AudioPath([string]$rootPath,[string]$relative,[string]$absolute) 
         -not $full.Equals([IO.Path]::GetFullPath($absolute),$cmp)) {
         throw 'Audio does not belong to the approved library.'
     }
-    $parent = New-Object System.IO.DirectoryInfo([IO.Path]::GetDirectoryName($full))
+    $parent = [IO.DirectoryInfo]::new([IO.Path]::GetDirectoryName($full))
     while ($null -ne $parent -and -not $parent.FullName.Equals($base,$cmp)) {
         if ($parent.Attributes -band [IO.FileAttributes]::ReparsePoint) {
             throw 'Symlink ancestor directory refused.'
@@ -80,7 +80,7 @@ function Check-AudioPath([string]$rootPath,[string]$relative,[string]$absolute) 
 function Read-WavHeader([string]$path) {
     # Stream only headers, not audio; align with .NET SteinbergFoleyAudioProbe.
     $fs = [IO.File]::Open($path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
-    $br = New-Object IO.BinaryReader($fs)
+    $br = [IO.BinaryReader]::new($fs)
     try {
         $enc = [Text.Encoding]::ASCII
         if ($enc.GetString($br.ReadBytes(4)) -cne 'RIFF') { throw 'No RIFF header.' }

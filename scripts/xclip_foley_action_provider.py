@@ -61,7 +61,7 @@ def probe(ffprobe: Path, video: Path) -> tuple[int, int, int]:
 
 def window_grid(frame_count: int, numerator: int, denominator: int):
     duration = frame_count * denominator / numerator
-    windows = min(MAX_WINDOWS, max(1, math.ceil(duration / 2.0)))
+    windows = min(MAX_WINDOWS, max(1, round(duration / 2.0)))
     return [
         (round(i * frame_count / windows),
          round((i + 1) * frame_count / windows))

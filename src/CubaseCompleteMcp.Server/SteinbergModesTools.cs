@@ -30,8 +30,10 @@ public sealed class SteinbergModesTools
         },
         ["foley_mode"] = new JsonObject
         {
-            ["status"] = "NotImplemented",
-            ["next_boundary"] = "video spotting and timestamped sound-effect event manifest"
+            ["status"] = "SpottingDraftOnly",
+            ["implemented"] = "steinberg_foley_spot converts caller-supplied frame cues to rational-FPS timing and a review-only SFX search sheet",
+            ["not_implemented"] = "automatic video analysis, SFX file selection, video probe and direct DAW placement",
+            ["next_boundary"] = "optional external video cue detector and approved seconds-based audio export"
         },
         ["host_support"] = "Upstream broker was live-validated on Cubase 15; Cubase 12-14 and Nuendo 12-15 are not validated"
     };

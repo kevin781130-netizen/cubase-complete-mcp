@@ -7,6 +7,7 @@ precision/recall or commercial accuracy claim can be inferred from three clips.
 Weights/video are not published with the JSON report.
 """
 from __future__ import annotations
+import base64
 import hashlib
 import json
 import math
@@ -74,6 +75,58 @@ def fetch_bounded(url: str, target: Path, max_bytes: int = 35_000_000):
     if size < 10_000:
         raise RuntimeError("Unexpectedly small media download.")
     return digest.hexdigest(), size
+
+
+def emit_frame_contact_sheet(clip: Path, label: str):
+    """Return true sampled frame indices and log an ephemeral, inspectable JPEG.
+
+    This is NOT ground truth. Frame previews appear only in restricted build logs,
+    not in published Render assets or in the GitHub repository.
+    """
+    import cv2
+    import numpy as np
+
+    cap = cv2.VideoCapture(str(clip))
+    if not cap.isOpened():
+        raise ValueError("Unable to open media for independent frame review.")
+    count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    if count < 8:
+        cap.release()
+        raise ValueError("Too few frames to audit.")
+    frames = [round(i * (count - 1) / 5) for i in range(6)]
+    canvas = np.full((2 * 145, 3 * 248, 3), 238, dtype=np.uint8)
+    try:
+        for position, n in enumerate(frames):
+            cap.set(cv2.CAP_PROP_POS_FRAMES, n)
+            ok, frame = cap.read()
+            if not ok:
+                raise ValueError("Failed to read frame " + str(n))
+            h, w = frame.shape[:2]
+            if h < 16 or w < 16:
+                raise ValueError("Video too small for human auditing.")
+            ratio = min(240 / w, 125 / h)
+            resized = cv2.resize(frame, (max(1, int(w * ratio)), max(1, int(h * ratio))))
+            r, c = divmod(position, 3)
+            x = c * 248 + (248 - resized.shape[1]) // 2
+            y = r * 145 + 12 + (125 - resized.shape[0]) // 2
+            canvas[y:y + resized.shape[0], x:x + resized.shape[1]] = resized
+            cv2.putText(canvas, f"frame={n}", (c * 248 + 4, r * 145 + 11),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.34, (0, 0, 0), 1, cv2.LINE_AA)
+    finally:
+        cap.release()
+    ok, encoded = cv2.imencode(".jpg", canvas, [cv2.IMWRITE_JPEG_QUALITY, 70])
+    if not ok:
+        raise ValueError("Could not encode independent frame contact sheet.")
+    payload = encoded.tobytes()
+    if len(payload) > 180000:
+        raise ValueError("Frame review sheet exceeded safety size.")
+    digest = hashlib.sha256(payload).hexdigest()
+    chunks = [base64.b64encode(payload).decode("ascii")[i:i+1800]
+              for i in range(0, len(base64.b64encode(payload).decode("ascii")), 1800)]
+    print(f"XCLIP_FRAME_CONTACT_META={label}:{len(chunks)}:{digest}", flush=True)
+    for i, chunk in enumerate(chunks):
+        print(f"XCLIP_FRAME_CONTACT_CHUNK={label}:{i}:{chunk}", flush=True)
+    return frames, digest
 
 
 def predicted_action(trace: dict, min_score: float, min_margin: float):
@@ -182,6 +235,7 @@ def main():
         numerator, denominator, frame_count = provider.probe(ffprobe, clip)
         if not (frame_count >= 8 and frame_count <= 48):
             raise ValueError("Reencoded sample has unexpected frame count.")
+        audited_frames, contact_hash = emit_frame_contact_sheet(clip, name)
         traces = []
         cues, windows = provider.classify(clip, model_dir, numerator, denominator,
                                           frame_count, 0.48, 0.12,
@@ -197,6 +251,9 @@ def main():
             "processed_sha256": hashlib.sha256(clip.read_bytes()).hexdigest(),
             "fps": f"{numerator}/{denominator}", "frames": frame_count,
             "window_count": windows,
+            "contact_sheet_sha256": contact_hash,
+            "contact_sheet_frame_indices": audited_frames,
+            "visual_verification_status": "AWAITING_INDEPENDENT_HUMAN_FRAME_REVIEW",
         })
         rows.append(result)
         print("XCLIP_WEAK_LABEL_RESULT=" +

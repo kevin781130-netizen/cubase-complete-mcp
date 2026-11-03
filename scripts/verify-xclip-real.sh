@@ -181,6 +181,8 @@ python -m unittest discover -s tests/python -p 'test_siglip_xclip_baseline.py' -
 unset HF_HUB_OFFLINE TRANSFORMERS_OFFLINE
 python - <<'PY'
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path("scripts").resolve()))
 from huggingface_hub import snapshot_download
 from compare_siglip_xclip import MODEL_REPO, MODEL_REVISION, verify_model
 # Keep SigLIP weights outside the public static site; no pickle weights.

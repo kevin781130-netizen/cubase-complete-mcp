@@ -233,6 +233,13 @@ python3 -m json.tool "$OUT/diagnostic-report.json" >/dev/null
 python3 -m json.tool "$OUT/siglip-comparison.json" >/dev/null
 echo STEINBERG_ALL_PUBLISHED_EVIDENCE_JSON_VALID
 
+# Survey is independent of model labels and runs only after both real models pass.
+echo FOLEY_RUNNING_DOOR_REVIEW_SURVEY_BEGIN
+python -m unittest discover -s tests/python -p 'test_foley_running_door_controls.py' -v
+python scripts/survey_foley_running_door_controls.py "$FFMPEG"
+python -m json.tool "$OUT/action-controls-survey.json" >/dev/null
+echo FOLEY_RUNNING_DOOR_REVIEW_SURVEY_COMPLETED_NOT_ACTION_ACCURACY
+
 # Never publish original/modified media or model weights as public Render assets.
 rm -f "$OUT/opencv-vtest-original.avi" "$OUT/pedestrians-two-seconds.mp4" "$OUT/model-path.txt" "$OUT/siglip-model-dir.txt"
 rmdir "$OUT/_benchmark_media_not_published" 2>/dev/null || true

@@ -46,7 +46,7 @@ class WeakLabelBenchmarkTests(unittest.TestCase):
         self.assertIsNone(mod.predicted_action(self.make_trace("quiet_scene", "walking", 0.7, 0.15), 0.30, 0.05))
 
     def test_licence_and_sources_are_attributed(self):
-        self.assertEqual(len(mod.SAMPLES), 3)
+        self.assertEqual(len(mod.SAMPLES), 4)
         for sample in mod.SAMPLES:
             self.assertIn("commons.wikimedia.org", sample["page"])
             self.assertIn("CC-BY-SA", sample["license"])
@@ -59,18 +59,21 @@ class WeakLabelBenchmarkTests(unittest.TestCase):
         self.assertEqual(reviews["crowd_walking"]["visual_status"], "confirmed_visible")
         self.assertEqual(reviews["runners"]["visual_status"], "not_confirmed")
         self.assertEqual(reviews["fans_clapping"]["visual_status"], "indeterminate")
+        self.assertEqual(reviews["walking_in_sands"]["visual_status"], "confirmed_visible")
         rows = [
             {"id": "crowd_walking", "visual_review": reviews["crowd_walking"],
              "default_threshold_candidate_matches_weak_label": False},
             {"id": "runners", "visual_review": reviews["runners"],
              "default_threshold_candidate_matches_weak_label": False},
             {"id": "fans_clapping", "visual_review": reviews["fans_clapping"],
-             "default_threshold_candidate_matches_weak_label": True}
+             "default_threshold_candidate_matches_weak_label": True},
+            {"id": "walking_in_sands", "visual_review": reviews["walking_in_sands"],
+             "default_threshold_candidate_matches_weak_label": False}
         ]
         audited = mod.summarize_reviewed_subset(rows)
-        self.assertEqual(audited["confirmed_visible_positive_clip_count"], 1)
+        self.assertEqual(audited["confirmed_visible_positive_clip_count"], 2)
         self.assertEqual(audited["confirmed_visible_default_threshold_match_count"], 0)
-        self.assertEqual(audited["confirmed_visible_default_threshold_potential_miss_count"], 1)
+        self.assertEqual(audited["confirmed_visible_default_threshold_potential_miss_count"], 2)
         self.assertEqual(audited["excluded_unconfirmed_clip_count"], 2)
         self.assertEqual(audited["dataset_recall"], "NOT_ESTIMATED")
         self.assertFalse(audited["production_threshold_changed"])
@@ -79,7 +82,7 @@ class WeakLabelBenchmarkTests(unittest.TestCase):
         reviews = mod.load_frame_reviews(
             Path(__file__).resolve().parents[1] / "fixtures" / "xclip_visual_review_v1.json")
         self.assertEqual(set(reviews), {x["id"] for x in mod.SAMPLES})
-        self.assertEqual(len({v["contact_sheet_sha256"] for v in reviews.values()}), 3)
+        self.assertEqual(len({v["contact_sheet_sha256"] for v in reviews.values()}), 4)
         self.assertTrue(all(v["sampled_frame_indices"] == [0, 5, 9, 14, 18, 23]
                             for v in reviews.values()))
 

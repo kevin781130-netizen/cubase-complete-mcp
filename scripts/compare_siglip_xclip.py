@@ -22,7 +22,10 @@ MODEL_SHA256 = "2c63cb7d1f2e95ba501893cbb8faeb4ea9a3af295498d35097126228659c2af8
 
 def verify_model(model: Path):
     weight = model / "model.safetensors"
-    if not weight.is_file() or weight.is_symlink():
+    # Hugging Face snapshot_download normally exposes immutable cache blobs
+    # through symlinks inside HF_HOME. Do not reject its own snapshot layout:
+    # the full 813 MB content is SHA-256 verified immediately below.
+    if not weight.is_file():
         raise ValueError("Pinned SigLIP safetensors missing.")
     with weight.open("rb") as stream:
         actual = hashlib.file_digest(stream, "sha256").hexdigest()

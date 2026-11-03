@@ -257,6 +257,14 @@ An additional bounded candidate survey (`scripts/survey_foley_action_videos.py`)
 
 The real X-CLIP gate now requires **four** benchmark clips with exactly **two** hashed, visually confirmed walking positives, and continues to exclude the two unresolved original labels. It must not assert any population-level precision/recall, onset timing, background-noise detection or commercial accuracy from these few static-frame confirmations. The fixed production threshold (0.48 / 0.12) and Cubase/Nuendo core remain unchanged. Windows real-machine validation and sample matching remain NOT_RUN.
 
+## Slice 18 — independent Apache-2.0 still-image model baseline (SigLIP)
+
+Optional validation-only `scripts/compare_siglip_xclip.py` compares **real pretrained Google SigLIP base patch16-224** to existing **real Microsoft X-CLIP** on the exact same eight video-frame indices and the same ten text descriptions. The SigLIP model card labels the weights **Apache-2.0**; the source weights are pinned to commit `88ce39778b70932de29ec01792536fc86c2cfdbf`, SHA-256 `2c63cb7d1f2e95ba501893cbb8faeb4ea9a3af295498d35097126228659c2af8`. Only `safetensors` are accepted and model execution occurs locally within the isolated Render build.
+
+Important: **SigLIP is not a temporal action-recognition model**. It scores eight individual still frames separately; its comparison ranking averages eight independent sigmoid similarities. X-CLIP consumes the video frames as a temporal sequence, scoring them jointly. Each model's score definition differs; the scores and thresholds must **never** be compared numerically or used to automatically select/emit Foley audio.
+
+The comparison gate re-downloads the same four attributed Wikimedia Commons files, demands the exact previously proven source **and reencoded video SHA-256** for each one, evaluates eight corresponding frame indices, and deletes all temporary footage. The resulting `siglip-comparison.json` records per-class SigLIP frame scores and side-by-side **rankings** with X-CLIP. It reports the two visually reviewed walking positives separately from two unverified action labels. No precision, recall, action-onset accuracy, sample-placement or live Cubase/Nuendo claim is made. No weights or videos are published. This step does not change the deployed Foley classification pipeline.
+
 ## Version and acceptance boundaries
 
 - The **existing** broker/driver was validated on Cubase 15, not Cubase 12–14 or Nuendo. Do not advertise those versions as working until host compatibility and API limitations have been tested.

@@ -265,6 +265,10 @@ function Verify-Inputs([string]$prePath,[string]$timingPath) {
 }
 
 try {
+    if ($env:OS -cne 'Windows_NT') {
+        $report.status='BLOCKED_NOT_WINDOWS'
+        throw 'Windows PowerShell host is required for Windows-specific acceptance evidence.'
+    }
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
         $report.status='ENVIRONMENT_BLOCKED'; throw 'Git unavailable.'
     }

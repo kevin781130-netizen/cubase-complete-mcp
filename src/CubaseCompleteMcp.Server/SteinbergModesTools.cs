@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text.Json.Nodes;
@@ -37,20 +38,22 @@ public sealed class SteinbergModesTools
 
     [McpServerTool(Name = "steinberg_arrange_tempo", ReadOnly = false, Destructive = true, OpenWorld = false)]
     [Description("Run an explicitly configured local GrooveMap Next CLI on an existing WAV drum stem. Writes new tempo/drum MIDI and timing files under a unique absolute output prefix; refuses existing outputs. Does not insert anything into Cubase/Nuendo. Genuine Beat This! inference may need a licensed local checkpoint.")]
-    public async Task<JsonNode> ArrangeTempo(string drums_wav, string output_prefix, CancellationToken cancellationToken = default)
+    public async Task<JsonNode> ArrangeTempo(string drums_wav, string output_prefix, string? checkpoint_path = null, CancellationToken cancellationToken = default)
     {
         try
         {
             var executable = ConfiguredExecutable(GrooveEnv, "groovemap-next.exe");
             if (executable is null) return Error("PROVIDER_NOT_CONFIGURED", "Set STEINBERG_GROOVEMAP_EXE to the full path of the installed groovemap-next.exe.");
+            if (string.IsNullOrWhiteSpace(checkpoint_path)) return Error("CHECKPOINT_REQUIRED", "An explicitly supplied local Beat This! .ckpt checkpoint is required; automatic downloads are disabled by this adapter.");
+            var checkpoint = ExistingAbsoluteFile(checkpoint_path, ".ckpt");
             var input = ExistingAbsoluteFile(drums_wav, ".wav");
             var prefix = AbsoluteOutputPrefix(output_prefix);
             var outputs = new[] { "_tempo.mid", "_drums.mid", "_timing.json", "_drums_humanized.mid", "_groove.json" }
                 .Select(suffix => prefix + suffix).ToArray();
             if (outputs.Any(Path.Exists)) return Error("OUTPUT_EXISTS", "An output under the requested prefix already exists. Choose a new prefix; existing work is never overwritten.");
             return await RunProviderAsync(executable,
-                ["suno", "--drums", input, "--out", prefix, "--device", "cpu"],
-                [prefix + "_tempo.mid", prefix + "_drums.mid"], cancellationToken).ConfigureAwait(false);
+                ["suno", "--drums", input, "--out", prefix, "--device", "cpu", "--checkpoint", checkpoint],
+                [prefix + "_tempo.mid", prefix + "_drums.mid", prefix + "_timing.json"], cancellationToken).ConfigureAwait(false);
         }
         catch (ArgumentException e) { return Error("INVALID_INPUT", e.Message); }
     }
@@ -166,8 +169,9 @@ public sealed class SteinbergModesTools
                 if (process.ExitCode != 0)
                     return Error("PROVIDER_FAILED", "External CLI exited with code " + process.ExitCode +
                         ": " + Clip(errors, 1000) + " " + Clip(log, 300));
-                if (requiredOutputs.Any(path => !ValidMidi(path)))
-                    return Error("OUTPUT_NOT_VERIFIED", "The CLI finished but one or more expected MIDI files were missing or not valid MIDI headers. Check the provider output before any retry.");
+                if (requiredOutputs.Any(path => path.EndsWith(".mid", StringComparison.OrdinalIgnoreCase) && !ValidMidi(path)) ||
+                    requiredOutputs.Any(path => path.EndsWith("_timing.json", StringComparison.OrdinalIgnoreCase) && !ValidTempoMetadata(path)))
+                    return Error("OUTPUT_NOT_VERIFIED", "The provider returned success but expected structured MIDI/tempo artifacts were invalid or incomplete. Inspect outputs before retrying.");
 
                 var files = new JsonArray();
                 foreach (var path in requiredOutputs) files.Add(path);
@@ -176,7 +180,7 @@ public sealed class SteinbergModesTools
                     ["status"] = "OkFilesOnly",
                     ["execution_state"] = "applied",
                     ["files"] = files,
-                    ["validation"] = "MIDI headers checked; timing, musical accuracy and DAW import NOT verified",
+                    ["validation"] = "MIDI structure and (for GrooveMap) real-model tempo JSON source checked. Musical accuracy, model licensing, and DAW import NOT verified",
                     ["stdout_tail"] = Clip(log, 600)
                 };
             }
@@ -202,9 +206,39 @@ public sealed class SteinbergModesTools
     private static bool ValidMidi(string path)
     {
         if (!File.Exists(path)) return false;
-        using var stream = File.OpenRead(path);
-        Span<byte> header = stackalloc byte[4];
-        return stream.Read(header) == 4 && header.SequenceEqual("MThd"u8);
+        try
+        {
+            using var stream = File.OpenRead(path);
+            Span<byte> header = stackalloc byte[14];
+            if (stream.Read(header) != header.Length || !header[..4].SequenceEqual("MThd"u8)) return false;
+            var headerLength = BinaryPrimitives.ReadUInt32BigEndian(header.Slice(4, 4));
+            var format = BinaryPrimitives.ReadUInt16BigEndian(header.Slice(8, 2));
+            var trackCount = BinaryPrimitives.ReadUInt16BigEndian(header.Slice(10, 2));
+            var division = BinaryPrimitives.ReadUInt16BigEndian(header.Slice(12, 2));
+            if (headerLength != 6 || format > 2 || trackCount == 0 || division == 0 || stream.Length < 22)
+                return false;
+            Span<byte> trackHeader = stackalloc byte[8];
+            if (stream.Read(trackHeader) != trackHeader.Length || !trackHeader[..4].SequenceEqual("MTrk"u8))
+                return false;
+            var trackLength = BinaryPrimitives.ReadUInt32BigEndian(trackHeader.Slice(4, 4));
+            return trackLength >= 4 && stream.Length >= 22L + trackLength;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return false; }
+    }
+
+    private static bool ValidTempoMetadata(string path)
+    {
+        if (!File.Exists(path)) return false;
+        try
+        {
+            var root = JsonNode.Parse(File.ReadAllText(path));
+            return root?["schema"]?.GetValue<string>() == "groovemap-next-timing-v2" &&
+                root["beat_source"]?.GetValue<string>() == "CPJKU/beat_this:minimal" &&
+                root["tempo_points"] is JsonArray points && points.Count > 0 &&
+                root["beats_sec"] is JsonArray beats && beats.Count > 0;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException)
+        { return false; }
     }
 
     private static string Clip(string value, int max) =>

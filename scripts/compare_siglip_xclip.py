@@ -31,10 +31,10 @@ def verify_model(model: Path):
     return actual
 
 
-def score_frames(video: Path, model, processor):
+def score_frames(video: Path, model, processor, ffprobe: Path):
     import cv2
     import torch
-    num, den, count = xclip.probe(Path(sys.argv[3]), video)
+    num, den, count = xclip.probe(ffprobe, video)
     grid = xclip.window_grid(count, num, den)
     # Fixed two-second dataset must create exactly one 8-frame X-CLIP window.
     if len(grid) != 1:
@@ -130,7 +130,7 @@ def run(model_dir: Path, ffmpeg: Path, ffprobe: Path):
                 derived_hash = hashlib.file_digest(stream, "sha256").hexdigest()
             if derived_hash != known[sample["id"]]["processed_sha256"]:
                 raise ValueError("Derived video differs from original X-CLIP evidence.")
-            baseline = score_frames(clip, model, processor)
+            baseline = score_frames(clip, model, processor, ffprobe)
             target = sample["label"]
             xs = known[sample["id"]]
             xrank = xs["best_label_rank"]

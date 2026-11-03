@@ -31,10 +31,10 @@ public sealed class SteinbergModesTools
         ["foley_mode"] = new JsonObject
         {
             ["status"] = "SpottingDraftOnly",
-            ["implemented"] = "steinberg_foley_spot converts explicit frame cues to review-only timecodes; steinberg_foley_cutpilot_scenes optionally scans video with a separately installed CutPilot histogram detector",
-            ["optional_provider"] = "STEINBERG_CUTPILOT_PYTHON and STEINBERG_CUTPILOT_FFPROBE plus an absolute local CutPilot checkout; no automatic downloads",
-            ["not_implemented"] = "semantic action recognition, automatic SFX file selection/generation, drop-frame timecode, and direct DAW placement",
-            ["next_boundary"] = "reviewable matching of SFX assets to external scene candidates"
+            ["implemented"] = "steinberg_foley_spot for explicit cues; steinberg_foley_cutpilot_scenes for visual cuts; steinberg_foley_xclip_actions for optional local model-based candidate action classification",
+            ["optional_providers"] = "CutPilot uses STEINBERG_CUTPILOT_PYTHON/FFPROBE. X-CLIP uses STEINBERG_XCLIP_PYTHON/FFPROBE plus local MIT model safetensors; no implicit downloads.",
+            ["not_implemented"] = "confirmed action detection at exact timestamps, automatic SFX matching/generation, drop-frame timecode and DAW placement",
+            ["next_boundary"] = "real X-CLIP weights and sample video acceptance, then reviewable SFX candidate matching"
         },
         ["host_support"] = "Upstream broker was live-validated on Cubase 15; Cubase 12-14 and Nuendo 12-15 are not validated"
     };

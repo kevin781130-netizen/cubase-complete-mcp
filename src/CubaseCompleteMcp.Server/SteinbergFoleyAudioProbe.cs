@@ -40,6 +40,7 @@ internal static class SteinbergFoleyAudioProbe
             int chunks = 0;
 
             Span<byte> chunk = stackalloc byte[8];
+            Span<byte> fmt = stackalloc byte[16];
             while (stream.Position < stream.Length)
             {
                 if (stream.Length - stream.Position < 8 || ++chunks > 128)
@@ -55,7 +56,6 @@ internal static class SteinbergFoleyAudioProbe
                 {
                     if (fmtFound || size < 16 || size > 4096)
                     { issue = "INVALID_WAV_FMT_CHUNK"; return false; }
-                    Span<byte> fmt = stackalloc byte[16];
                     stream.ReadExactly(fmt);
                     codec = BinaryPrimitives.ReadUInt16LittleEndian(fmt[0..2]);
                     channels = BinaryPrimitives.ReadUInt16LittleEndian(fmt[2..4]);

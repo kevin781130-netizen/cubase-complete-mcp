@@ -156,6 +156,37 @@ The source can be a human spotting pass or an *independent* computer-vision dete
 
 **Current gate**: New `SteinbergFoleyTests` are committed; re-run the Linux Render .NET build/tests on the exact new SHA before reporting PASS. Windows Cubase/Nuendo remains NOT_RUN.
 
+## Slice 12 — optional CutPilot scene detector bridge (automated picture cuts, **not** action recognition)
+
+- **Actual detector**: [CutPilot `cutpilot/scenes.py`](https://github.com/kevin781130-netizen/CutPilot/blob/fix/rc-core-blockers-20261102/cutpilot/scenes.py) — its `detect_scene_cuts(video_path,start,end,...)` samples video frames with OpenCV HSV histogram correlation. **It does not identify walking, doors closing, footsteps, punches or audio/SFX.** No CutPilot code or model was forked/copied into this MCP project.
+- The new `steinberg_foley_cutpilot_scenes` MCP command launches the **separately installed** CutPilot Python environment with a bundled lightweight `scripts/cutpilot_foley_scene_provider.py` adapter. It reads `ffprobe`'s actual rational average video FPS and `nb_frames`, requires a nominal/average FPS match, then asks the installed CutPilot detector for scene boundaries. Cut timestamps are converted to approximate frame positions, rounded to the declared frame grid. The **sample interval (default 0.25 s) is the true accuracy limit**; the output is *not* precise SMPTE frame or verified CFR/variable-rate timing.
+- The result is a **new** `steinberg-foley-cues-v1` draft from `SteinbergFoleyTools.SpotCutPilot` with `source: cutpilot_histogram_scene_boundaries_not_action_detection`, `track: other`, `sample_path: null`, `selection_status: unmatched_requires_review`, and `host_action: none`. No sound files or effects are chosen. If no scene boundaries are found, no output is written.
+- Explicit opt-in is required. Configure `STEINBERG_CUTPILOT_PYTHON` and `STEINBERG_CUTPILOT_FFPROBE` to **absolute paths of local executables**; pass an absolute path to the existing CutPilot checkout as `cutpilot_root`. Python must have `opencv-python-headless` or equivalent working `cv2` installed. The bridge installs **nothing** and uses no shell, no remote API, no model weights, and no DAW SDK. A scan has a 120-second timeout; the provider caps footage at ten minutes per call and refuses sources without reported frame count or with inconsistent reported FPS.
+
+Example configuration (replace paths and use the Python interpreter that already has CutPilot's `cv2` dependency):
+
+```powershell
+$env:STEINBERG_CUTPILOT_PYTHON = "C:\\CutPilot\\.venv\\Scripts\\python.exe"
+$env:STEINBERG_CUTPILOT_FFPROBE = "C:\\ffmpeg\\bin\\ffprobe.exe"
+```
+
+Example MCP parameters:
+
+```json
+{
+  "tool": "steinberg_foley_cutpilot_scenes",
+  "arguments": {
+    "video_path": "C:\\\\Video\\\\scene.mp4",
+    "cutpilot_root": "C:\\\\CutPilot",
+    "output_manifest": "C:\\\\Exports\\\\scene-visual-cut-review.json",
+    "sampling_interval": 0.25,
+    "threshold": 0.52
+  }
+}
+```
+
+**Acceptance boundary**: Tests in C# verify the MCP contract and marked CutPilot provenance. Five Python provider tests verify rational FPS, refusal of VFR/range errors and the external module call using a **fake/simulated CutPilot detector**. These are *contract tests only*, not a real OpenCV video-run. Real video samples, Windows path handling, true semantic action recognition, SFX matching and Cubase/Nuendo timeline placement are **NOT_RUN**.
+
 ## Version and acceptance boundaries
 
 - The **existing** broker/driver was validated on Cubase 15, not Cubase 12–14 or Nuendo. Do not advertise those versions as working until host compatibility and API limitations have been tested.

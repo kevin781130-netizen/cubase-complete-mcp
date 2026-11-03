@@ -428,6 +428,26 @@ Timecode is derived from a zero-based **human-approved absolute frame index** us
 
 The generated \`steinberg-foley-preimport-acceptance-v1\` is **PASS_FILE_ONLY_READY_FOR_MANUAL_DAW_REVIEW**, not Windows host acceptance. It lists event frames, seconds, relative SMPTE-style timecodes, fixed track mapping, verified WAV and video hashes, and precise limitations. \`actual_cubase_nuendo_import=NOT_RUN\`, \`automatic_daw_import=false\`, \`host_action=none\`. The DAW tracks are expected names for later **manual track review**, not proof they exist in Cubase/Nuendo. Human sound/sync review and real Windows import remain outstanding. The \`main\` branch, GitHub Actions and the existing DAWproject exporter are not changed by this slice.
 
+## Slice 27 — single-command Windows Foley acceptance entry (no DAW mutations)
+
+New entry: \`scripts/verify-steinberg-windows-foley.ps1\`, designed for **Windows 11 PowerShell 5.1+** on the feature branch \`feat/steinberg-dualmode-adapters-20261104\`. It calls the already-existing \`verify-steinberg-offline.ps1\` subgate, rather than duplicating .NET tests. The project **does not require local Docker or GitHub Actions**.
+
+From a clean checkout of the feature branch, with the .NET SDK pinned by \`global.json\` and locked NuGet packages already in the local cache:
+
+\`\`\`powershell
+.\scripts\verify-steinberg-windows-foley.ps1 -PreDawManifest "C:\Foley\pre-daw.json" -TimingReview "C:\Foley\timing-review.json"
+\`\`\`
+
+The two human-reviewed JSON files are mandatory for the **full file-only PASS**, and are **not generated** or fabricated by this command. The pre-DAW manifest comes from the two existing human approval MCP tools, with manually listened-to candidate WAV files; the timing review follows the JSON example in Slice 26 above (video/manifest SHA-256, human-confirmed full-video frame and track mapping). Without these two inputs, the script may still complete the offline test portion but ultimately returns \`BLOCKED_MISSING_HUMAN_REVIEW_INPUTS\` (nonzero exit). If the strict-offline restore finds no cached locked NuGet packages, it returns \`ENVIRONMENT_BLOCKED\`; it does **not** modify NuGet sources, use Docker or bypass any network restrictions.
+
+The entrypoint rejects the wrong/detached Git branch, a dirty worktree, an unexpected Git SHA in the offline result, zero/failed tests, missing pinned official DAWproject XSD tests, missing/malformed/symlinked inputs, replaced source-video bytes or WAV bytes, invalid WAV RIFF PCM/float headers, unexpected sample paths or redirected parent folders, mismatched sample/window hashes, unsupported frame rates, invalid 29.97/59.94 drop-frame declarations, wrong \`FOLEY_DOOR_OPEN\`/\`FOLEY_DOOR_CLOSE\` track mapping, unapproved/duplicate/out-of-range event frames, and missing human timecode attestations.
+
+Each invocation creates a **new GUID-named evidence directory** under \`%TEMP%\SteinbergFoleyWindowsAcceptance\`. Outputs are \`dotnet-offline/steinberg-offline-verification.json\`, a fresh TRX, and \`foley-windows-acceptance.json\` containing the branch + SHA, test count, per-file SHA checks, track/timecode rows and blockers. This launcher never creates an audio export, copies sample media, edits a project, contacts a DAW broker, installs a driver or automatically accepts sound.
+
+Success is **\`PASS_FILE_ONLY_WINDOWS_PREFLIGHT\`**, explicitly **not** a Cubase/Nuendo import PASS. Even on native Windows, declared FPS/frame count, video action onset, 2-second model-window mapping, commercial rights and actual DAW track presence remain unverified independently. Actual DAW import is still \`NOT_RUN\` until a separate authorized Windows fixture/host acceptance, as described in \`docs/live-acceptance.md\`. No live fixture modification is authorized by this preflight.
+
+The Render Linux build checks **seven Python source-level safety contracts** for this PowerShell entry plus existing .NET MCP tests; it cannot run Windows PowerShell or Cubase. Its JSON evidence explicitly says \`windows_powershell_runtime_execution: NOT_RUN\`. These source-level contracts are not a substitute for a successful native Windows run of this entrypoint.
+
 ## Version and acceptance boundaries
 
 - The **existing** broker/driver was validated on Cubase 15, not Cubase 12–14 or Nuendo. Do not advertise those versions as working until host compatibility and API limitations have been tested.

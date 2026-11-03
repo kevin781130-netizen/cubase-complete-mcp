@@ -83,7 +83,7 @@ report = {
     'executed_tests': len(tests),
     'passed_tests': len(passed),
     'official_xsd_tests': list(required),
-    'windows_powershell_script_static_contract_tests': 'PASS_12_OF_12_SOURCE_ONLY',
+    'windows_powershell_script_static_contract_tests': 'PASS_17_OF_17_SOURCE_ONLY',
     'windows_powershell_runtime_execution': 'NOT_RUN',
     'windows_native': 'NOT_RUN',
     'cubase_nuendo_import': 'NOT_RUN',

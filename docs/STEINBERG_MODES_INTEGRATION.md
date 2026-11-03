@@ -356,6 +356,36 @@ The optional `max_duration_seconds` parameter defaults to **20 seconds** (suppor
 
 An optional user-supplied `steinberg-local-sample-rights-v1` registry remains **declaration only, not a checked legal grant**. Entries whose declared license ID includes `-NC` (noncommercial) or `-ND` (no derivatives) are conservatively excluded from this prospective commercial workflow pending separate rights clearance. Files without records can still appear **solely as unapproved review candidates**, labeled `no_rights_record`; other declarations are `user_declared_not_verified`. No candidate is marked `commercial_rights_cleared`; all are false, and nothing gets approved, selected, played, uploaded or placed in Cubase/Nuendo. The resulting report includes checked/excluded file counts and per-reason exclusions. This is a portable, file-only predevice slice, not live DAW acceptance.
 
+## Slice 25 — explicit user approval and sample SHA-256 lock (pre-DAW only)
+
+Two MCP tools in \`SteinbergFoleyApprovalTools.cs\` extend the local, review-only workflow. Neither places a clip in Cubase/Nuendo or exports a DAWproject.
+
+**A. \`steinberg_foley_prepare_audio_review\`** receives an existing \`steinberg-foley-local-sample-candidates-v1\` draft and a NEW destination path. It checks that every event is unselected, contained in a bounded local library, not a redirected audio file/directory, and that the WAV header/size/duration still match the candidate preflight. It computes the actual file SHA-256 for each candidate (no audio copied or listened to). It creates a \`steinberg-foley-audio-review-sheet-v1\` JSON with candidate SHA-256, paths, audio technical metadata, unverified rights evidence, and all review flags false. The tool returns the **review sheet SHA-256** used in the next step.
+
+**B. Human action**: Listen to the candidate; independently review the relevant intended commercial-use rights; ensure the sound fits the **unconfirmed** action; author a separate explicit approval JSON:
+\`\`\`json
+{
+  "schema": "steinberg-foley-explicit-approval-v1",
+  "review_sha256": "<sha256 returned by the prepare tool>",
+  "approvals": [
+    {
+      "source_event_id": "mine_door_at_0",
+      "relative_path": "Doors/wood_door_open.wav",
+      "sample_sha256": "<candidate sample_sha256 in review sheet>",
+      "listened_to_sample": true,
+      "confirmed_matching_action": true,
+      "reviewed_rights_for_intended_use": true,
+      "approved_for_pre_daw_review_only": true,
+      "reviewer_note": "Reviewer notes and independently checked licensing information"
+    }
+  ]
+}
+\`\`\`
+
+**C. \`steinberg_foley_finalize_audio_review\`** takes the original review sheet, explicit approval file and a NEW destination. It rejects modified review sheets or draft source manifests, missing approval fields, duplicated event IDs, unknown candidate names/hashes, path traversal or symlinks, and mismatched audio SHA/size/header. It writes \`steinberg-foley-pre-daw-hashlocked-v1\` with SHA-256 fingerprints, the source event/video/contact hashes, audio header metadata and the separate approval-file hash. Unapproved events are counted rather than silently approved.
+
+This **records a human attestation**, not independently verified legal rights, sound quality or precise motion onset. Audio bytes must be hashed again immediately before any later export/import. The final status is \`human_attested_samples_pending_daw_timing_review\`; \`action_timing_verified: false\`, \`daw_placement_approved: false\`, \`host_action: none\`. No media copied, DAW plugin called or live project altered. Actual Cubase/Nuendo Windows import is **NOT_RUN**.
+
 ## Version and acceptance boundaries
 
 - The **existing** broker/driver was validated on Cubase 15, not Cubase 12–14 or Nuendo. Do not advertise those versions as working until host compatibility and API limitations have been tested.

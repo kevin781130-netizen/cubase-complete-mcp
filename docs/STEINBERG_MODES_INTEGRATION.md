@@ -312,6 +312,42 @@ The second guard is strictly fail-closed: **first** X-CLIP and SigLIP must agree
 
 **Gate**: eight synthetic/unit cases plus the existing real 4-clip X-CLIP/SigLIP acceptance. The real static-mine-door negative must have `localized_motion_evidence: false`; else fail rather than silently accepting the implementation. No production Foley sample matching, Cubase host changes or Windows acceptance is claimed. If the real motion gate fails, `ENVIRONMENT_BLOCKED` or `TEST_FAILED` must be reported rather than declaring PASS.
 
+## Slice 23 — review-only local Foley sample candidate search
+
+A new MCP tool, `steinberg_foley_sample_candidates` in `SteinbergFoleySampleTools.cs`, joins existing **bounded local sample discovery** (`steinberg_sample_search`) to the conservative `action-controls-comparison.json` source produced by real X-CLIP/SigLIP plus reviewed door ROI motion. It works on a **downloaded local copy** of the report; model weights or Render network access are not needed for this tool. The new optional `filename_query` argument to `steinberg_sample_search` filters sample filenames and their immediate parent-folder names **before** the existing 100-result limit. The existing public search behavior is unchanged when the query is omitted.
+
+Example MCP arguments (Windows; these are example paths, not actual user folders):
+
+```json
+{
+  "fusion_report": "C:\\\\Foley\\\\action-controls-comparison.json",
+  "library_root": "D:\\\\Samples",
+  "output_manifest": "C:\\\\Foley\\\\foley-sample-review.json",
+  "rights_registry": "D:\\\\Samples\\\\sample-rights.json",
+  "max_per_event": 3
+}
+```
+
+Only `door_roi_motion_experimental.motion_gated_rows` with `status: review_proposal_not_confirmed`, the exact action `opening_door` or `closing_door`, source video/contact SHA-256 and `host_action: none` can produce suggestions. Abstained/negative windows produce **zero** candidates. The input manifest is still a **model output, not proof of a verified or human-approved action**. This pass only ranks local WAV/AIFF/FLAC **filenames and parent-folder names** containing door/gate/hinge/latch terms. It rejects contradictory open+close filename tags and does not identify sounds by listening. Each category's search is bounded to 100 results (scan limit 12,000 entries; max 400 directories; 8 levels) and **`search_truncated_at_100_per_keyword: true`** signals incomplete discovery.
+
+Optional, explicitly provided local rights registry format:
+
+```json
+{
+  "schema": "steinberg-local-sample-rights-v1",
+  "entries": [
+    {
+      "relative_path": "Doors/wood_door_open.wav",
+      "license_id": "CC0-1.0",
+      "source_url": "https://example.org/licensing/wood_door",
+      "attribution": "Example only; not evidence of a real grant"
+    }
+  ]
+}
+```
+
+This attaches only `user_declared_not_verified` rights evidence, **not confirmed legal permission**. Without a record, each candidate says `no_rights_record`. Every exported record keeps `selected: false`, `chosen_sample_path: null`, `audio_content_decoded: false`, `audio_content_sha256_verified: false`; the sheet is `draft_requires_human_approval` and `host_action: none`. No DAW timeline, source audio, Cubase session or installed plugins are mutated, and no sound is copied/exported. The next boundary is **user review + rights/format/audio validation**, not automatic placement.
+
 ## Version and acceptance boundaries
 
 - The **existing** broker/driver was validated on Cubase 15, not Cubase 12–14 or Nuendo. Do not advertise those versions as working until host compatibility and API limitations have been tested.

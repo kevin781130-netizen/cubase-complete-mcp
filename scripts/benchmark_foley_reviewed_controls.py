@@ -15,6 +15,7 @@ import subprocess
 import sys
 
 import benchmark_xclip_commons as benchmark
+import foley_door_fusion as door_fusion
 import compare_siglip_xclip as siglip
 import survey_foley_running_door_controls as sources
 import xclip_foley_action_provider as xclip
@@ -276,6 +277,12 @@ def finalize():
     xr = json.loads((PROOF / "action-controls-xclip.json").read_text(encoding="utf8"))
     sr = json.loads((PROOF / "action-controls-siglip.json").read_text(encoding="utf8"))
     metrics = summarize(xr, sr)
+    # Fusion is a separate optional review layer: only model rankings are
+    # consulted. Human labels are used for *evaluation*, never for inference.
+    fusion_rows = door_fusion.fuse_pairs(xr, sr)
+    fusion_summary = door_fusion.summarize(fusion_rows, NEGATIVE)
+    if len(fusion_rows) != len(inputs):
+        raise ValueError("Door fusion omitted a reviewed clip.")
     expected = {r["id"]: r for r in inputs}
     for row in xr + sr:
         item = expected[row["id"]]
@@ -301,6 +308,12 @@ def finalize():
         "xclip_report": "action-controls-xclip.json",
         "siglip_report": "action-controls-siglip.json",
         "summary": metrics,
+        "door_fusion_experimental": {
+            "status": "REVIEW_ONLY_NO_AUTO_SOUND",
+            "rule": door_fusion.RULE,
+            "summary": fusion_summary,
+            "rows": fusion_rows,
+        },
         "review_limitation": "6 contact-sheet stills per 2-second clip, nonblind; no full-motion annotation. A no-door-operation window is NOT an absence-of-any-action control.",
         "siglip_limitation": "Still-image scores do not encode action timing. Do not compare sigmoid scores with X-CLIP softmax scores.",
         "model_weights_and_video_published": False,

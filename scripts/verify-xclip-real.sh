@@ -141,5 +141,30 @@ report={
     '<p><a href="report.json">JSON evidence</a></p></html>',encoding='utf-8')
 print('XCLIP_AUTHENTIC_CPU_INFERENCE_PASS '+json.dumps(report))
 PY
-# Do not publish private model weights or full upstream video in static assets.
+echo XCLIP_WEAK_LABEL_DIAGNOSTIC_CONTRACT_TEST_BEGIN
+python -m unittest discover -s tests/python -p 'test_xclip_foley_benchmark.py' -v
+
+echo XCLIP_THREE_COMMONS_VIDEO_INFERENCE_BEGIN
+python scripts/benchmark_xclip_commons.py "$MODEL_DIR" "$FFMPEG" "$FFPROBE"
+
+python - <<'PY'
+import json
+from pathlib import Path
+p = Path('.render-xclip-real-proof')
+report = json.loads((p/'report.json').read_text(encoding='utf8'))
+diagnostics = json.loads((p/'diagnostic-report.json').read_text(encoding='utf8'))
+if len(diagnostics['samples']) != 3 or diagnostics['source_head'] != report['source_sha']:
+    raise SystemExit('INVALID_THREE_VIDEO_DIAGNOSTICS')
+report['three_clip_weak_label_diagnostics'] = 'PASS_REAL_WEIGHTS_WEAK_LABELS_NOT_GROUND_TRUTH'
+report['diagnostic_report'] = 'diagnostic-report.json'
+report['weak_label_summary'] = diagnostics['summary']
+(p/'report.json').write_text(json.dumps(report, indent=2, ensure_ascii=False)+'\\n',encoding='utf8')
+html = (p/'index.html').read_text(encoding='utf8')
+html = html.replace('</html>', '<p><a href="diagnostic-report.json">Three-video raw logits & possible misses</a></p></html>')
+(p/'index.html').write_text(html, encoding='utf8')
+print('XCLIP_REAL_LABELED_DIAGNOSTIC_GATE_PASS ' + json.dumps(diagnostics['summary']))
+PY
+
+# Never publish original/modified media or model weights as public Render assets.
 rm -f "$OUT/opencv-vtest-original.avi" "$OUT/pedestrians-two-seconds.mp4" "$OUT/model-path.txt"
+rmdir "$OUT/_benchmark_media_not_published" 2>/dev/null || true

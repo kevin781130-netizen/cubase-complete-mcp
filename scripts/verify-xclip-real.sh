@@ -147,6 +147,9 @@ python -m unittest discover -s tests/python -p 'test_xclip_foley_benchmark.py' -
 echo XCLIP_THREE_COMMONS_VIDEO_INFERENCE_BEGIN
 python scripts/benchmark_xclip_commons.py "$MODEL_DIR" "$FFMPEG" "$FFPROBE"
 
+echo XCLIP_NEW_ACTION_SOURCE_FRAME_SURVEY_BEGIN
+python scripts/survey_foley_action_videos.py "$FFMPEG"
+
 python - <<'PY'
 import json
 from pathlib import Path

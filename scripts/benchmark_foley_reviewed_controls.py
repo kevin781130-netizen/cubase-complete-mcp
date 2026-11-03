@@ -16,6 +16,7 @@ import sys
 
 import benchmark_xclip_commons as benchmark
 import foley_door_fusion as door_fusion
+import foley_door_motion as door_motion
 import compare_siglip_xclip as siglip
 import survey_foley_running_door_controls as sources
 import xclip_foley_action_provider as xclip
@@ -24,6 +25,7 @@ PROOF = Path(".render-xclip-real-proof")
 WORK = PROOF / "_reviewed_controls_media_NOT_PUBLISHED"
 INPUT_MANIFEST = WORK / "inputs.json"
 REVIEW_FIXTURE = Path("tests/fixtures/foley_action_controls_visual_review_20261104.json")
+MOTION_ROIS = Path("tests/fixtures/foley_door_motion_rois_v1.json")
 POSITIVES = ("arakawa_jogging_at_4", "subway_door_at_4", "mine_door_at_0")
 NEGATIVE = "mine_door_at_4"
 REQUIRED_IDS = set(POSITIVES) | {NEGATIVE}
@@ -242,6 +244,44 @@ def infer_siglip(model_dir: Path, ffprobe: Path):
         json.dumps(results, indent=2) + "\n", encoding="utf8")
 
 
+def inspect_door_motion():
+    _, inputs = require_inputs()
+    fixture = json.loads(MOTION_ROIS.read_text(encoding="utf8"))
+    if fixture.get("schema") != "foley-door-motion-rois-v1":
+        raise ValueError("Unexpected independent ROI annotation schema.")
+    rois = fixture.get("rois", [])
+    roi_by_id = {row["id"]: row for row in rois}
+    expected_ids = {"subway_door_at_4", "mine_door_at_0", NEGATIVE}
+    if len(rois) != 3 or set(roi_by_id) != expected_ids:
+        raise ValueError("Exactly three reviewed, independently annotated door ROIs required.")
+    measurements = []
+    for item in inputs:
+        id = item["id"]
+        if id not in expected_ids:
+            continue
+        annotation = roi_by_id[id]
+        if annotation.get("source_contact_sha256") != item["contact_sha256"]:
+            raise ValueError("ROI annotation does not match reviewed contact-sheet SHA: " + id)
+        result = door_motion.examine_video(
+            WORK / (id + ".mp4"), annotation["normalized_xyxy"], 24)
+        measurements.append({
+            "id": id,
+            "video_sha256": item["video_sha256"],
+            "contact_sha256": item["contact_sha256"],
+            "annotation_source": str(MOTION_ROIS),
+            "motion": result,
+        })
+        print("FOLEY_REAL_DOOR_ROI_MOTION=" + json.dumps({
+            "id": id, "evidence": result["localized_motion_evidence"],
+            "active_pairs": result["active_pairs"],
+            "status": result["status"]
+        }), flush=True)
+    if len(measurements) != 3:
+        raise ValueError("Door motion evidence incomplete.")
+    (PROOF / "action-controls-motion.json").write_text(
+        json.dumps(measurements, indent=2, ensure_ascii=False) + "\\n", encoding="utf8")
+
+
 def summarize(xclip_rows: list[dict], siglip_rows: list[dict]):
     x = {r["id"]: r for r in xclip_rows}
     s = {r["id"]: r for r in siglip_rows}
@@ -281,6 +321,25 @@ def finalize():
     # consulted. Human labels are used for *evaluation*, never for inference.
     fusion_rows = door_fusion.fuse_pairs(xr, sr)
     fusion_summary = door_fusion.summarize(fusion_rows, NEGATIVE)
+    motion_rows = json.loads((PROOF / "action-controls-motion.json").read_text(encoding="utf8"))
+    if (len(motion_rows) != 3 or
+            {r["id"] for r in motion_rows} != {"subway_door_at_4", "mine_door_at_0", NEGATIVE}):
+        raise ValueError("Missing or extra door ROI motion evidence.")
+    motions = {r["id"]: r for r in motion_rows}
+    if motions[NEGATIVE]["motion"]["localized_motion_evidence"] is not False:
+        raise ValueError("STATIC_DOOR_ROI_MOTION_CONTROL_FAILED: fail closed.")
+    motion_fused = door_motion.apply_motion_gate(fusion_rows, motion_rows)
+    motion_summary = {
+        "door_roi_motion_method": door_motion.METHOD,
+        "reviewed_door_regions": len(motion_rows),
+        "class_specific_static_door_negative_motion": "NO_LOCALIZED_MOTION",
+        "motion_supported_review_proposals": sum(
+            r["proposed_door_action"] is not None for r in motion_fused),
+        "unverified_panel_geometry": True,
+        "verified_direction": False,
+        "automatic_sfx_matching": False,
+        "host_modified": False,
+    }
     if len(fusion_rows) != len(inputs):
         raise ValueError("Door fusion omitted a reviewed clip.")
     expected = {r["id"]: r for r in inputs}
@@ -314,6 +373,12 @@ def finalize():
             "summary": fusion_summary,
             "rows": fusion_rows,
         },
+        "door_roi_motion_experimental": {
+            "status": "REVIEW_ONLY_NOT_DOOR_GEOMETRY_VALIDATED",
+            "summary": motion_summary,
+            "roi_evidence": motion_rows,
+            "motion_gated_rows": motion_fused,
+        },
         "review_limitation": "6 contact-sheet stills per 2-second clip, nonblind; no full-motion annotation. A no-door-operation window is NOT an absence-of-any-action control.",
         "siglip_limitation": "Still-image scores do not encode action timing. Do not compare sigmoid scores with X-CLIP softmax scores.",
         "model_weights_and_video_published": False,
@@ -339,6 +404,8 @@ def main():
         infer_xclip(Path(sys.argv[2]), Path(sys.argv[3]))
     elif stage == "siglip" and len(sys.argv) == 4:
         infer_siglip(Path(sys.argv[2]), Path(sys.argv[3]))
+    elif stage == "motion" and len(sys.argv) == 2:
+        inspect_door_motion()
     elif stage == "finalize" and len(sys.argv) == 2:
         finalize()
     else:

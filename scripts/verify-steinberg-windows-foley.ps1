@@ -9,6 +9,7 @@
 param(
     [string]$PreDawManifest,
     [string]$TimingReview,
+    [switch]$SelfTest,
     [string]$ResultsDirectory = (Join-Path $env:TEMP 'SteinbergFoleyWindowsAcceptance')
 )
 Set-StrictMode -Version Latest
@@ -29,6 +30,8 @@ $report = [ordered]@{
     host_modified=$false; github_actions='NOT_USED'; message=''
     phase='INITIALIZE'; failure_code='NOT_RUN'; error_type=''
     stage_history=@(); offline_output_log=''
+    selftest_requested=$SelfTest.IsPresent
+    selftest_scope='NOT_RUN'
     environment=[ordered]@{
         os_name=$env:OS; powershell_version=$PSVersionTable.PSVersion.ToString()
         os_version=[Environment]::OSVersion.Version.ToString()
@@ -283,6 +286,74 @@ function Verify-Inputs([string]$prePath,[string]$timingPath) {
     $report.events=@($evidence | Sort-Object event_frame,source_event_id)
 }
 
+function Invoke-WindowsScriptSelfTest {
+    # All mutable inputs are synthetic fixtures inside this unique run folder.
+    # Does not inspect user audio, video, licensing or actual Cubase/Nuendo.
+    $fixture=Join-Path $run 'selftest-pcm-8000hz.wav'
+    $stream=[IO.File]::Open($fixture,[IO.FileMode]::CreateNew,
+        [IO.FileAccess]::Write,[IO.FileShare]::None)
+    $writer=[IO.BinaryWriter]::new($stream)
+    try {
+        $ascii=[Text.Encoding]::ASCII
+        $writer.Write($ascii.GetBytes('RIFF'))
+        $writer.Write([uint32]16036)
+        $writer.Write($ascii.GetBytes('WAVE'))
+        $writer.Write($ascii.GetBytes('fmt '))
+        $writer.Write([uint32]16)
+        $writer.Write([uint16]1)
+        $writer.Write([uint16]1)
+        $writer.Write([uint32]8000)
+        $writer.Write([uint32]16000)
+        $writer.Write([uint16]2)
+        $writer.Write([uint16]16)
+        $writer.Write($ascii.GetBytes('data'))
+        $writer.Write([uint32]16000)
+        [byte[]]$samples=New-Object 'byte[]' 16000
+        $writer.Write($samples)
+    } finally {
+        $writer.Dispose()
+        $stream.Dispose()
+    }
+    $file=Must-File $fixture 268435456 '.wav'
+    $audio=Read-WavHeader $file
+    if ($audio.hz -ne 8000 -or $audio.ch -ne 1 -or
+        $audio.bits -ne 16 -or [math]::Abs($audio.duration-1.0) -gt 0.000001) {
+        throw 'Native PowerShell RIFF PCM duration/header selftest failed.'
+    }
+    $before=Hash-File $file
+    if (-not (Is-Sha $before)) {
+        throw 'Windows SHA-256 native command did not return 64 hexadecimal characters.'
+    }
+    if ((Rate-Nominal 30000 1001) -ne 30 -or
+        (Rate-Nominal 60000 1001) -ne 60 -or
+        (Frame-TC 1800 30 $true) -cne '00:01:00;02' -or
+        (Frame-TC 17982 30 $true) -cne '00:10:00;00' -or
+        (Frame-TC 3600 60 $true) -cne '00:01:00;04' -or
+        (Frame-TC 1800 30 $false) -cne '00:01:00:00') {
+        throw 'Native PowerShell SMPTE drop-frame/non-drop calculation failed.'
+    }
+    # A content-only mutation must change the SHA, yet leave RIFF
+    # technical header and duration unchanged.
+    $mutation=[IO.File]::Open($file,[IO.FileMode]::Open,
+        [IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+    try {
+        $mutation.Position=72
+        $mutation.WriteByte([byte]0x37)
+    } finally {
+        $mutation.Dispose()
+    }
+    $after=Hash-File $file
+    $metadata=Read-WavHeader $file
+    if ($before -ceq $after -or
+        [math]::Abs($metadata.duration-1.0) -gt 0.000001) {
+        throw 'Native PowerShell byte-mutation SHA-256 regression failed.'
+    }
+    $report.selftest_scope='WINDOWS_POWERSHELL_SYNTHETIC_WAV_HASH_SMPTE_ONLY'
+    $report.sample_sha256='PASS_SYNTHETIC_BYTE_MUTATION'
+    $report.reviewed_timecode_tracks='PASS_SYNTHETIC_SMPTE_ONLY'
+    $report.checked_samples=1
+}
+
 try {
     Enter-Stage 'WINDOWS_HOST'
     if ($env:OS -cne 'Windows_NT') {
@@ -290,6 +361,14 @@ try {
         throw 'Windows PowerShell host is required for Windows-specific acceptance evidence.'
     }
     Complete-Stage
+    if ($SelfTest.IsPresent) {
+        Enter-Stage 'WINDOWS_NATIVE_SCRIPT_SELFTEST'
+        Invoke-WindowsScriptSelfTest
+        Complete-Stage
+        $report.failure_code='NONE'
+        $report.status='PASS_WINDOWS_SCRIPT_SELFTEST_ONLY'
+        $report.message='Native Windows PowerShell synthetic WAV RIFF/header, byte-hash and SMPTE arithmetic passed. Offline .NET tests, real media review and Cubase/Nuendo import are NOT_RUN.'
+    } else {
     Enter-Stage 'SOURCE_GIT_IDENTITY'
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
         $report.status='ENVIRONMENT_BLOCKED'; throw 'Git unavailable.'
@@ -358,11 +437,13 @@ try {
     $report.failure_code='NONE'
     $report.status='PASS_FILE_ONLY_WINDOWS_PREFLIGHT'
     $report.message='No DAW mutation. Source SHA, offline tests, audio/video SHA and human-declared timecode/track inputs passed; real import NOT_RUN.'
+    }
 } catch {
     if ($report.status -eq 'NOT_RUN') { $report.status='FAIL_CLOSED' }
     # Stable machine-readable blocker code + phase: no misleading host PASS.
     $codes=@{
         'WINDOWS_HOST'='NOT_WINDOWS'
+        'WINDOWS_NATIVE_SCRIPT_SELFTEST'='WINDOWS_SELFTEST_FAILURE'
         'SOURCE_GIT_IDENTITY'='SOURCE_BRANCH_OR_WORKTREE'
         'DOTNET_OFFLINE_XSD_AND_MCP'='DOTNET_RESTORE_BUILD_TEST_OR_XSD'
         'HUMAN_REVIEW_INPUTS'='HUMAN_APPROVAL_FILES_MISSING'
@@ -385,4 +466,4 @@ try {
     Write-Host ('Evidence: '+$reportFile)
     Write-Host 'Cubase/Nuendo real import: NOT_RUN'
 }
-if ($report.status -cne 'PASS_FILE_ONLY_WINDOWS_PREFLIGHT') { exit 1 }
+if ($report.status -cnotin @('PASS_FILE_ONLY_WINDOWS_PREFLIGHT','PASS_WINDOWS_SCRIPT_SELFTEST_ONLY')) { exit 1 }

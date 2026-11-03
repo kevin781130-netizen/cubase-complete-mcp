@@ -1,0 +1,41 @@
+{
+  "schema": "foley-door-motion-rois-v1",
+  "review_method": "Approximate door-area rectangle manually selected by inspecting previously reviewed six-frame contact sheets; not a door segmentation mask. X/Y are fractions of the decoded video width/height.",
+  "source_review_fixture": "tests/fixtures/foley_action_controls_visual_review_20261104.json",
+  "caution": "ROI may include people, reflections, or camera movement. Pixel change is only localized motion evidence, NOT confirmation of door geometry, opening/closing direction, or precise action onset.",
+  "rois": [
+    {
+      "id": "subway_door_at_4",
+      "source_contact_sha256": "815accef80fd84c3de465fea6bca700e13daeaa79d9a29848e9c9497df0d659e",
+      "normalized_xyxy": [
+        0.31,
+        0.12,
+        0.81,
+        0.94
+      ],
+      "annotation": "Subway entrance including the moving door panels, as seen in six still frames"
+    },
+    {
+      "id": "mine_door_at_0",
+      "source_contact_sha256": "4f23b08534e7e3f595128b61e592305e2c8b33a734696af4b62bd5377b740937",
+      "normalized_xyxy": [
+        0.34,
+        0.06,
+        0.73,
+        0.97
+      ],
+      "annotation": "Mine hinged door region near center, can include visible person"
+    },
+    {
+      "id": "mine_door_at_4",
+      "source_contact_sha256": "8e13e25d640d917ee1131d96aee72d57a472a530051ef53c7bd060f8b38bb09e",
+      "normalized_xyxy": [
+        0.38,
+        0.06,
+        0.88,
+        0.97
+      ],
+      "annotation": "Open, visually static mine door panel and portal, possible peripheral motion"
+    }
+  ]
+}

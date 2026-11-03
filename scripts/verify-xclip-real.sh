@@ -231,11 +231,15 @@ echo FOLEY_REVIEWED_ACTION_CONTROLS_CONTRACT_TESTS_BEGIN
 python -m unittest discover -s tests/python -p 'test_foley_running_door_controls.py' -v
 python -m unittest discover -s tests/python -p 'test_foley_reviewed_controls_comparison.py' -v
 python -m unittest discover -s tests/python -p 'test_foley_door_fusion.py' -v
+python -m unittest discover -s tests/python -p 'test_foley_door_motion.py' -v
 
 # Four reviewer-locked windows: three action positives and one narrow negative.
 # Real models use verified local weights in separate CPU processes.
 echo FOLEY_FOUR_REVIEWED_VIDEO_HASH_GATE_BEGIN
 python scripts/benchmark_foley_reviewed_controls.py prepare "$FFMPEG" "$FFPROBE"
+
+echo FOLEY_REAL_DOOR_ROI_TEMPORAL_MOTION_BEGIN
+python scripts/benchmark_foley_reviewed_controls.py motion
 
 echo FOLEY_FOUR_REAL_XCLIP_INFERENCE_BEGIN
 python scripts/benchmark_foley_reviewed_controls.py xclip "$MODEL_DIR" "$FFPROBE"
@@ -255,6 +259,9 @@ info = comparison['summary']
 fusion = comparison.get('door_fusion_experimental') or {}
 gate = fusion.get('summary') or {}
 rows = fusion.get('rows') or []
+motion = comparison.get('door_roi_motion_experimental') or {}
+motion_gate = motion.get('summary') or {}
+motion_rows = motion.get('motion_gated_rows') or []
 if not (
     comparison['source_sha'] == report['source_sha']
     and info['verified_positive_windows'] == 3
@@ -266,6 +273,13 @@ if not (
     and gate.get('automatic_sfx_matching') is False
     and gate.get('automatic_daw_placement') is False
     and len(rows) == 4
+    and motion.get('status') == 'REVIEW_ONLY_NOT_DOOR_GEOMETRY_VALIDATED'
+    and motion_gate.get('reviewed_door_regions') == 3
+    and motion_gate.get('class_specific_static_door_negative_motion') == 'NO_LOCALIZED_MOTION'
+    and motion_gate.get('automatic_sfx_matching') is False
+    and motion_gate.get('host_modified') is False
+    and len(motion_rows) == 4
+    and all(m.get('host_action') == 'none' and m.get('selected_audio_file') is None for m in motion_rows)
     and all(r.get('host_action') == 'none' and r.get('selected_audio_file') is None
             and r.get('verified_motion') is False for r in rows)
 ):
@@ -282,6 +296,12 @@ report['reviewed_running_and_door_comparison'] = {
         'summary': gate,
         'no_sound_or_daw_changes': True
     },
+    'experimental_roi_motion': {
+        'status': motion.get('status'),
+        'summary': motion_gate,
+        'report': 'action-controls-motion.json',
+        'not_door_geometry_tracking': True,
+    },
 }
 (root/'report.json').write_text(json.dumps(report,indent=2,ensure_ascii=False)+'\n',encoding='utf8')
 html = (root/'index.html').read_text(encoding='utf8')
@@ -291,7 +311,7 @@ print('FOLEY_ACTION_CONTROLS_REAL_GATE_COMPLETE=' + json.dumps(info))
 PY
 
 # A static-site build can report success while its JSON is malformed: fail closed.
-for file in report.json diagnostic-report.json siglip-comparison.json action-controls-comparison.json action-controls-xclip.json action-controls-siglip.json; do
+for file in report.json diagnostic-report.json siglip-comparison.json action-controls-comparison.json action-controls-xclip.json action-controls-siglip.json action-controls-motion.json; do
   python3 -m json.tool "$OUT/$file" >/dev/null
 done
 test ! -e "$OUT/_reviewed_controls_media_NOT_PUBLISHED"

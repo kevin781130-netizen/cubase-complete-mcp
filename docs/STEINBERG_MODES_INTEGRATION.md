@@ -235,6 +235,18 @@ Samples, description-based **weak** labels and licensing:
 
 Original videos are downloaded temporarily, clipped to the **first two seconds**, and transcoded to 12 fps for deterministic 8-frame windows. Their **Commons titles/descriptions are not frame-level ground truth**; a selected two-second excerpt may not contain the named action. Thus "possible misses" and Top-1/Top-3 description agreement are exploratory diagnostic counts **not validated recall, false-negative rate, precision, or commercial accuracy**. The normal 0.48/0.12 threshold is not changed based on three samples; report-only sweeps compare alternative settings. No KTH research-only video was used, no generated SFX was selected, and Cubase/Nuendo real-machine import remains NOT_RUN.
 
+## Slice 15 — checksum-anchored visual review of first-two-second benchmark clips
+
+We inspected six sampled frames (indices 0, 5, 9, 14, 18 and 23) **independently from the video filenames** and recorded the review in `tests/fixtures/xclip_visual_review_v1.json`. Each review is locked to the exact first-two-second contact-sheet SHA-256; the real-video gate refuses changed frames until a new review is performed.
+
+- **`crowd_walking` / walking: confirmed visible within sampled stills.** A foreground pedestrian advances toward the camera across sampled frames. The real X-CLIP class was ranked #2 and abstained at the existing 0.48/0.12 production threshold; this is one *reviewed positive* with a **possible missed candidate**, not a verified temporal recall percentage.
+- **`runners` / running: not confirmed.** The sampled first-two-second frames show athletes on a running track, including people in crouched start positions. They do **not independently confirm running within that excerpt**. Excluded from reviewed-label denominator; its earlier "possible running miss" must **not** be used as a false negative.
+- **`fans_clapping` / clapping: indeterminate.** Raised arms are visible, but a repeated clap/contact sequence cannot be established from six stills. Excluded from reviewed-label denominator; the earlier X-CLIP match is not verified as correct.
+
+These are **human-reviewed static excerpts only**. The review was **not blinded** to previously recorded X-CLIP rankings. Neither full-frame motion nor frame-level onset timing nor sound truth was established. Only **one of three** original weak-label cases is sufficiently visually confirmed for the narrow descriptive subset. With a sample of one, no production accuracy, precision/recall, false-negative rate or new threshold is claimed.
+
+The `benchmark_xclip_commons.py` gate now preserves its original weak-label figures for comparison, but additionally reports `human_frame_review_summary` where the unconfirmed two cases are excluded. Media and contact sheets are not published to the static site; only metadata, frame hash and review text are saved. The model, production settings, DAWproject export and host communication remain unchanged.
+
 ## Version and acceptance boundaries
 
 - The **existing** broker/driver was validated on Cubase 15, not Cubase 12–14 or Nuendo. Do not advertise those versions as working until host compatibility and API limitations have been tested.

@@ -129,7 +129,9 @@ def classify(video: Path, model_dir: Path, num: int, den: int, count: int,
                 if not ok:
                     raise ValueError("Video frame decoding failed at index " + str(index))
                 frames.append(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
-            inputs = processor(text=PROMPTS, videos=[frames], return_tensors="pt",
+            # Hugging Face XCLIPProcessor expects the 8-frame video sequence directly.
+            # videos=[frames] adds an extra nesting level and can break real preprocessing.
+            inputs = processor(text=PROMPTS, videos=frames, return_tensors="pt",
                                padding=True, truncation=True)
             with torch.no_grad():
                 logits = model(**inputs).logits_per_video[0]

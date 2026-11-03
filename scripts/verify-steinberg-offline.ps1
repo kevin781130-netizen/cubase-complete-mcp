@@ -43,9 +43,17 @@ try {
         $report.head = (& git -C $root rev-parse HEAD | Select-Object -First 1)
     }
 
-    # Honor NuGet lockfiles. Restore may need downloads if packages are not cached.
-    & dotnet restore $solution --locked-mode
-    if ($LASTEXITCODE -ne 0) { $report.restore = 'FAIL'; throw 'dotnet restore failed.' }
+    # Strictly offline restore: use an empty local NuGet source; the preexisting
+    # global packages cache can satisfy locked dependencies, otherwise block.
+    # This never contacts arbitrary NuGet registries or bypasses network policy.
+    $offlineFeed = Join-Path $ResultsDirectory '_offline_nuget_source'
+    New-Item -ItemType Directory -Force -Path $offlineFeed | Out-Null
+    & dotnet restore $solution --locked-mode --source $offlineFeed -p:NuGetAudit=false
+    if ($LASTEXITCODE -ne 0) {
+        $report.restore = 'BLOCKED_NO_CACHED_PACKAGES'
+        $report.status = 'ENVIRONMENT_BLOCKED'
+        throw 'Strictly offline restore failed; one or more locked NuGet packages are not cached.'
+    }
     $report.restore = 'PASS'
 
     & dotnet build $solution -c Release --no-restore

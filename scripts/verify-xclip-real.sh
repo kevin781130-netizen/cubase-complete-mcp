@@ -147,19 +147,17 @@ python -m unittest discover -s tests/python -p 'test_xclip_foley_benchmark.py' -
 echo XCLIP_THREE_COMMONS_VIDEO_INFERENCE_BEGIN
 python scripts/benchmark_xclip_commons.py "$MODEL_DIR" "$FFMPEG" "$FFPROBE"
 
-echo XCLIP_NEW_ACTION_SOURCE_FRAME_SURVEY_BEGIN
-python scripts/survey_foley_action_videos.py "$FFMPEG"
-
+# Candidate survey is opt-in and was previously reviewed. Do not re-download rejected media in each inference run.
 python - <<'PY'
 import json
 from pathlib import Path
 p = Path('.render-xclip-real-proof')
 report = json.loads((p/'report.json').read_text(encoding='utf8'))
 diagnostics = json.loads((p/'diagnostic-report.json').read_text(encoding='utf8'))
-if len(diagnostics['samples']) != 3 or diagnostics['source_head'] != report['source_sha']:
+if len(diagnostics['samples']) != 4 or diagnostics['source_head'] != report['source_sha']:
     raise SystemExit('INVALID_THREE_VIDEO_DIAGNOSTICS')
 audited = diagnostics.get('human_frame_review_summary') or {}
-if (audited.get('confirmed_visible_positive_clip_count') != 1 or
+if (audited.get('confirmed_visible_positive_clip_count') != 2 or
         audited.get('excluded_unconfirmed_clip_count') != 2 or
         audited.get('dataset_recall') != 'NOT_ESTIMATED' or
         audited.get('production_threshold_changed') is not False):

@@ -125,7 +125,10 @@ public sealed class SteinbergDawprojectTests
             Assert.False(File.Exists(output));
 
             var corruptByteRate = (byte[])original.Clone();
-            corruptByteRate[28] = 0; // 48k x 2 bytes must be 96000 bytes/sec.
+            // 96000 = 0x00017700 (LE bytes 00 77 01 00).
+            // Byte 28 is already zero; mutate the nonzero byte at 29.
+            corruptByteRate[29] = 0;
+            Assert.NotEqual(original[29], corruptByteRate[29]);
             File.WriteAllBytes(source, corruptByteRate);
             Assert.Equal("EXPORT_REJECTED", exporter.Export(root, [draft], output, true)["code"]!.GetValue<string>());
             Assert.False(File.Exists(output));

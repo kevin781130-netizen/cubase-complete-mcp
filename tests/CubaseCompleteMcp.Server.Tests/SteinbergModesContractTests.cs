@@ -12,7 +12,7 @@ public sealed class SteinbergModesContractTests
     {
         var result = new SteinbergModesTools().Status();
         Assert.Equal("Ok", result["status"]!.GetValue<string>());
-        Assert.Equal("NotImplemented", result["foley_mode"]!["status"]!.GetValue<string>());
+        Assert.Equal("SpottingDraftOnly", result["foley_mode"]!["status"]!.GetValue<string>());
         Assert.Contains("not validated", result["host_support"]!.GetValue<string>());
     }
 

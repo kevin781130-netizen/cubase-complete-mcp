@@ -60,7 +60,6 @@ class WindowsFoleyEntrypointSourceContract(unittest.TestCase):
         self.assertIn("(Hash-File $audio) -cne $e.sample_sha256", s)
         self.assertIn("Read-WavHeader $audio", s)
         self.assertIn("ReparsePoint", s)
-        self.assertIn("Sample path", s) if False else None
 
     def test_ntsc_drop_frame_and_fixed_track_names(self):
         s = self.source

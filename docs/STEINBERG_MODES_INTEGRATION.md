@@ -6,7 +6,7 @@ This branch extends the existing **Cubase Complete MCP** server with optional **
 
 - **Arrangement (implemented in this slice):**
   - `steinberg_modes_status`: report local provider readiness and both modes.
-  - `steinberg_arrange_tempo`: invoke GrooveMap Next V3 `groovemap-next suno --drums <wav> --out <prefix> --device cpu` to generate tempo/drum MIDI and timing JSON.
+  - `steinberg_arrange_tempo`: invoke GrooveMap Next V3 `groovemap-next suno --drums <wav> --out <prefix> --device cpu --checkpoint <trusted-local.ckpt>` to generate tempo/drum MIDI and timing JSON. A local checkpoint is mandatory, not auto-downloaded.
   - `steinberg_arrange_midi`: invoke MIDIVOLT's deterministic `midivolt-prompt --prompt <text> --out <file.mid>` to generate an independent, editable arrangement MIDI file.
   - **Not implemented:** sample-library search, placing WAV samples on the Cubase/Nuendo timeline, combining MIDI stems into a native project, automatic model installation, or changing a running DAW project.
 - **Foley (declared, not implemented):** video spotting, sound-effect selection/generation, cue-to-timecode event manifests, and host import are later slices.
@@ -35,9 +35,11 @@ Example tool requests from a connected MCP client:
 
 ```json
 {"tool":"steinberg_modes_status","arguments":{}}
-{"tool":"steinberg_arrange_tempo","arguments":{"drums_wav":"C:\\\\audio\\\\drums.wav","output_prefix":"C:\\\\exports\\\\song01"}}
+{"tool":"steinberg_arrange_tempo","arguments":{"drums_wav":"C:\\\\audio\\\\drums.wav","output_prefix":"C:\\\\exports\\\\song01","checkpoint_path":"C:\\\\models\\\\final0.ckpt"}}
 {"tool":"steinberg_arrange_midi","arguments":{"prompt":"8 bars in D minor at 110 BPM with chords, bass and drums","output_midi":"C:\\\\exports\\\\song01_sketch.mid"}}
 ```
+
+For GrooveMap, pass an existing trusted local `.ckpt` file through `checkpoint_path`. Missing checkpoints fail closed; the adapter does not attempt remote model downloads. A successful GrooveMap call requires MIDI structure and `groovemap-next-timing-v2` metadata with `beat_source: CPJKU/beat_this:minimal`, rejecting its known explicit test stub. This is evidence of the declared provider path, **not** proof of model authenticity, license, or timing accuracy.
 
 The target output directory **must already exist**. Output files are never overwritten. A process/inference error is reported as an error; files are not marked verified until expected MIDI headers are observed. An interrupted call can leave partial files requiring manual inspection.
 
@@ -45,7 +47,7 @@ The target output directory **must already exist**. Output files are never overw
 
 - The **existing** broker/driver was validated on Cubase 15, not Cubase 12–14 or Nuendo. Do not advertise those versions as working until host compatibility and API limitations have been tested.
 - These new adapters are independent of the MIDI Remote driver, so they can **produce portable files** before any host-specific integration is implemented. File creation does **not** establish correct timeline placement.
-- Local Windows .NET build, external CLI execution, real Beat This! inference, Cubase/Nuendo import, and listening QA are **NOT_RUN** in this branch unless independently evidenced.
+- Local Windows .NET build, test execution, external CLI execution, real Beat This! inference, Cubase/Nuendo import, and listening QA are **NOT_RUN** in this branch unless independently evidenced. This review confirmed source-level CLI argument compatibility, not live execution.
 - GitHub Actions are not required. Existing `main` is unchanged.
 
 ## Slice-1 acceptance target
@@ -53,7 +55,7 @@ The target output directory **must already exist**. Output files are never overw
 1. .NET solution compiles and the new MCP tool schemas are discoverable.
 2. Missing provider returns `PROVIDER_NOT_CONFIGURED` without starting any process.
 3. A local installed MIDIVOLT produces an SMF with an `MThd` header, with no overwrite.
-4. An authorized GrooveMap checkpoint plus real stem produces `_tempo.mid` and `_drums.mid`; failure is explicit.
+4. An authorized GrooveMap checkpoint plus real stem produces `_tempo.mid`, `_drums.mid` and `_timing.json`; structural checks reject truncated MIDI and explicit stub source. Failure is explicit.
 5. Any Cubase/Nuendo import and timing validation stays **NOT_RUN** until a real workstation test.
 
 The next slice should use a typed cue/sample manifest and an explicit approval-before-import path; it must not assume MIDI Remote API 1.x can create or move arbitrary audio events on the DAW timeline.

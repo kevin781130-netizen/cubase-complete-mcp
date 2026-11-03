@@ -230,6 +230,7 @@ PY
 echo FOLEY_REVIEWED_ACTION_CONTROLS_CONTRACT_TESTS_BEGIN
 python -m unittest discover -s tests/python -p 'test_foley_running_door_controls.py' -v
 python -m unittest discover -s tests/python -p 'test_foley_reviewed_controls_comparison.py' -v
+python -m unittest discover -s tests/python -p 'test_foley_door_fusion.py' -v
 
 # Four reviewer-locked windows: three action positives and one narrow negative.
 # Real models use verified local weights in separate CPU processes.
@@ -251,19 +252,36 @@ root = Path('.render-xclip-real-proof')
 report = json.loads((root/'report.json').read_text(encoding='utf8'))
 comparison = json.loads((root/'action-controls-comparison.json').read_text(encoding='utf8'))
 info = comparison['summary']
+fusion = comparison.get('door_fusion_experimental') or {}
+gate = fusion.get('summary') or {}
+rows = fusion.get('rows') or []
 if not (
     comparison['source_sha'] == report['source_sha']
     and info['verified_positive_windows'] == 3
     and info['verified_door_operation_specific_negative_windows'] == 1
     and info['production_threshold_changed'] is False
+    and fusion.get('status') == 'REVIEW_ONLY_NO_AUTO_SOUND'
+    and gate.get('class_specific_static_door_negative') == 'ABSTAINED_NO_DOOR_PROPOSAL'
+    and gate.get('door_review_proposals') == 1
+    and gate.get('automatic_sfx_matching') is False
+    and gate.get('automatic_daw_placement') is False
+    and len(rows) == 4
+    and all(r.get('host_action') == 'none' and r.get('selected_audio_file') is None
+            and r.get('verified_motion') is False for r in rows)
 ):
-    raise SystemExit('INVALID_FOUR_ACTION_CONTROL_REAL_COMPARISON')
+    raise SystemExit('INVALID_FOUR_ACTION_CONTROL_OR_DOOR_FUSION_GATE')
 report['reviewed_running_and_door_comparison'] = {
     'status': comparison['status'],
     'report': 'action-controls-comparison.json',
     'xclip_full_scores': 'action-controls-xclip.json',
     'siglip_full_scores': 'action-controls-siglip.json',
     'reviewed_summary': info,
+    'experimental_door_fusion': {
+        'rule': fusion.get('rule'),
+        'status': fusion.get('status'),
+        'summary': gate,
+        'no_sound_or_daw_changes': True
+    },
 }
 (root/'report.json').write_text(json.dumps(report,indent=2,ensure_ascii=False)+'\n',encoding='utf8')
 html = (root/'index.html').read_text(encoding='utf8')

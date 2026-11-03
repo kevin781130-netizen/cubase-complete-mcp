@@ -43,6 +43,25 @@ For GrooveMap, pass an existing trusted local `.ckpt` file through `checkpoint_p
 
 The target output directory **must already exist**. Output files are never overwritten. A process/inference error is reported as an error; files are not marked verified until expected MIDI headers are observed. An interrupted call can leave partial files requiring manual inspection.
 
+## Slice 3 — local sample library (file-only, no host mutation)
+
+The additional `SteinbergSampleTools` MCP class exposes:
+
+- `steinberg_sample_search`: bounded scan of a **user-supplied absolute library root**, optional category and target BPM. Results include absolute file paths, category **guesses from filename or parent folder**, and BPM **only when the filename explicitly includes `120bpm`-style metadata**. WAV / AIFF / FLAC extensions only; symlinks and reparse-point entries are skipped. There is **no listening, waveform tempo estimation, musical key detection, source-license validation or sample preview**. At most 12,000 entries and 400 folders, eight nested levels, 100 results.
+- `steinberg_sample_plan`: explicit selection of **one existing sample under the approved library root**; file signature and SHA-256 verification (up to 256 MiB), and a new `.json` placement draft with constant project BPM, musical bar/beat/sixteenth, 960 PPQ tick and time in seconds. Refuses any pre-existing manifest; no host or source audio is changed.
+- `status: draft_requires_approval` and `host_action: none` are deliberate. **No automatic placement in Cubase or Nuendo**, no audio time stretching, and no implied usage rights.
+
+MCP calls (illustrative paths; replace with actual local folders):
+
+```json
+{"tool":"steinberg_sample_search","arguments":{"library_root":"C:\\\\AudioLibrary","category":"kick","target_bpm":120,"limit":20}}
+{"tool":"steinberg_sample_plan","arguments":{"library_root":"C:\\\\AudioLibrary","sample_path":"C:\\\\AudioLibrary\\\\Kick\\\\kick_120bpm.wav","output_manifest":"C:\\\\Exports\\\\kick-bar2.json","project_bpm":120,"bar":2,"beat":1,"sixteenth":0,"beats_per_bar":4}}
+```
+
+Source search only reads metadata and bounded directory entries; plan reads a selected file for its hash but does not copy or decode it. Samples must be properly licensed for the user's intended use.
+
+**Verification:** a regression-test source file covers discovery, ordering, beat/tick/second arithmetic, collision refusal, outside-root rejection and invalid audio signatures. A real `.NET 8` build and test execution are **NOT_RUN** in this GitHub editing environment. An actual Cubase/Nuendo timeline import remains a separate future task.
+
 ## Version and acceptance boundaries
 
 - The **existing** broker/driver was validated on Cubase 15, not Cubase 12–14 or Nuendo. Do not advertise those versions as working until host compatibility and API limitations have been tested.

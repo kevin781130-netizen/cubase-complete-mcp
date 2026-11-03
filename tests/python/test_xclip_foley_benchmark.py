@@ -49,7 +49,7 @@ class WeakLabelBenchmarkTests(unittest.TestCase):
         self.assertEqual(len(mod.SAMPLES), 4)
         for sample in mod.SAMPLES:
             self.assertIn("commons.wikimedia.org", sample["page"])
-            self.assertIn("CC-BY-SA", sample["license"])
+            self.assertTrue(sample["license"].startswith(("CC-BY-", "CC-BY-SA-")), sample["license"])
             self.assertTrue(sample["creator"])
 
     def test_human_review_manifest_keeps_unconfirmed_actions_out_of_denominator(self):

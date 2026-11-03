@@ -1,0 +1,61 @@
+{
+  "schema": "xclip-visual-review-v1",
+  "review_date": "2026-11-04",
+  "review_method": "Independent visual examination of six sampled frames from each two-second clip; no full-motion playback or audio",
+  "reviewer_disclosure": "Model class rankings had already been observed; review is not blind",
+  "limitations": "This review can verify visible evidence in selected stills, not exact action onset, unseen intermediate frames, audio or model reliability. Only confirmed-visible items enter the reviewed subset.",
+  "reviewed_source_sha": "58086d7ea0264ce9f3f326b4fa0b5c79f5d1059d",
+  "reviews": [
+    {
+      "id": "crowd_walking",
+      "target_class": "walking",
+      "contact_sheet_sha256": "e3ba736fd095df5e4fcfe8db60a4492788f9af5df98f3b0c3d3aa2ababbd7e96",
+      "sampled_frame_indices": [
+        0,
+        5,
+        9,
+        14,
+        18,
+        23
+      ],
+      "visual_status": "confirmed_visible",
+      "review_note": "A foreground pedestrian advances toward the camera through sequential sampled frames, consistent with walking.",
+      "review_confidence": "moderate",
+      "qualifies_for_reviewed_subset": true
+    },
+    {
+      "id": "runners",
+      "target_class": "running",
+      "contact_sheet_sha256": "c4d8d3f75b0c130d7eb46fd315fdff3b74b32931fb9dbc77d75681286041b0f5",
+      "sampled_frame_indices": [
+        0,
+        5,
+        9,
+        14,
+        18,
+        23
+      ],
+      "visual_status": "not_confirmed",
+      "review_note": "Images show athletes on a running track, including crouched starters and standing figures; sustained running in the sampled two-second excerpt is not confirmed. Do not count an X-CLIP refusal as a running false negative.",
+      "review_confidence": "moderate",
+      "qualifies_for_reviewed_subset": false
+    },
+    {
+      "id": "fans_clapping",
+      "target_class": "clapping",
+      "contact_sheet_sha256": "53b4b5ba461fa6709f2194d34c2e3cd317349146bb5bca4a09f14aa0af9d5066",
+      "sampled_frame_indices": [
+        0,
+        5,
+        9,
+        14,
+        18,
+        23
+      ],
+      "visual_status": "indeterminate",
+      "review_note": "Raised hands and cheering gestures are visible; repeated palm contact cannot be reliably established from the six still frames alone.",
+      "review_confidence": "low",
+      "qualifies_for_reviewed_subset": false
+    }
+  ]
+}

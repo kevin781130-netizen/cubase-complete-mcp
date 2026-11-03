@@ -91,7 +91,7 @@ public sealed class SteinbergModesTools
         try
         {
             var full = Path.GetFullPath(value);
-            return Path.GetFileName(full).Equals(leafName, StringComparison.OrdinalIgnoreCase) && File.Exists(full)
+            return string.Equals(Path.GetFileName(full), leafName, StringComparison.OrdinalIgnoreCase) && File.Exists(full)
                 ? full : null;
         }
         catch (Exception e) when (e is ArgumentException or NotSupportedException or PathTooLongException) { return null; }

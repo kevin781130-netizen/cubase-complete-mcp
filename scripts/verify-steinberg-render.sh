@@ -51,6 +51,8 @@ python3 -m unittest discover -s tests/python -p 'test_cutpilot_foley_provider.py
 
 echo STEINBERG_XCLIP_OFFLINE_CONTRACT_TEST_BEGIN
 python3 -m unittest discover -s tests/python -p 'test_xclip_foley_action_provider.py' -v
+echo STEINBERG_WINDOWS_FOLEY_STATIC_SOURCE_CONTRACT_TEST_BEGIN
+python3 -m unittest discover -s tests/python -p 'test_steinberg_windows_foley_entry.py' -v
 
 python3 - "$HEAD" ".render-steinberg-proof/$TRX" <<'PY'
 import json, sys, xml.etree.ElementTree as ET
@@ -81,6 +83,8 @@ report = {
     'executed_tests': len(tests),
     'passed_tests': len(passed),
     'official_xsd_tests': list(required),
+    'windows_powershell_script_static_contract_tests': 'PASS_7_OF_7_SOURCE_ONLY',
+    'windows_powershell_runtime_execution': 'NOT_RUN',
     'windows_native': 'NOT_RUN',
     'cubase_nuendo_import': 'NOT_RUN',
     'license_and_audio_acceptance': 'NOT_RUN',

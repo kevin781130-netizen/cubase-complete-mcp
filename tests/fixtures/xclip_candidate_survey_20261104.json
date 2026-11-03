@@ -1,0 +1,41 @@
+{
+  "schema": "xclip-candidate-visual-survey-v1",
+  "survey_source_sha": "556b0ab4cbf1f47df967bf790542c998a521ff31",
+  "method": "Visual review of six sampled still frames (indices 0,5,9,14,18,23) from the first two seconds reencoded at 12fps. Not full-motion or audio verified.",
+  "caveats": "Review is non-blind and limited to stills. Titles do not establish whether actions occurred at selected time.",
+  "candidates": [
+    {
+      "id": "cdc_child_running",
+      "weak_label": "running",
+      "status": "not_confirmed",
+      "source_url": "https://commons.wikimedia.org/wiki/File:2_Year_Milestone-_Begins_to_run.webm",
+      "license": "Public domain US CDC",
+      "contact_sheet_sha256": "7da5c11740cdc2de7b5c065cd0088757e20a1d8fd24d3313a904740131133e00",
+      "review": "First sample blank. Child carries a ball and changes position; running is not distinguishable with confidence from six stills.",
+      "included_in_model_benchmark": false
+    },
+    {
+      "id": "walking_in_sands",
+      "weak_label": "walking",
+      "status": "confirmed_visible",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Walking_in_the_sands.webm",
+      "license": "CC BY 3.0 (creator sgu18ify)",
+      "contact_sheet_sha256": "ec3ca9a352b05d0a7618edf38a8af5c85235c8292181f583455fa25779d41210",
+      "review": "Person near shoreline changes position and walking stance, consistent with walking.",
+      "included_in_model_benchmark": true
+    },
+    {
+      "id": "nhs_clapping",
+      "weak_label": "clapping",
+      "status": "not_confirmed",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Clap_for_NHS_Thousands_clap_hands_together_in_round_of_applause_for_NHS_workers_Metro.webm",
+      "license": "CC BY 3.0 per Commons",
+      "contact_sheet_sha256": "a3352ba56bba47fe4048ac4fa9702db421e97b6f08973fdf5a658354559780af",
+      "review": "Selected first two seconds show title/graphics, no visible clapping. Exclude from all action evaluation.",
+      "included_in_model_benchmark": false
+    }
+  ],
+  "production_threshold_changed": false,
+  "approved_positive_count": 1,
+  "pending_true_action_accuracy_validation": true
+}

@@ -196,6 +196,8 @@ public sealed class SteinbergFoleySampleTools
                 ["maximum_duration_seconds"] = max_duration_seconds,
                 ["sample_filenames_found"] = found.Count,
                 ["audio_header_preflight_passed"] = usable.Count,
+                ["preflight_passed_files"] = usable.Count,
+                ["preflight_excluded_files"] = excluded.Values.Sum(),
                 ["excluded_by_reason"] = JsonSerializer.SerializeToNode(excluded),
                 ["commercial_rights_cleared"] = false,
                 ["audio_preflight_scope"] = "RIFF_WAV_PCM_FLOAT_header_only_AIFF_FLAC_RF64_excluded",

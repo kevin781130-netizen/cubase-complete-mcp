@@ -6,6 +6,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Include="../../scripts/cutpilot_foley_scene_provider.py"
+             Link="providers/cutpilot_foley_scene_provider.py"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\CubaseCompleteMcp.Core\CubaseCompleteMcp.Core.csproj" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" />

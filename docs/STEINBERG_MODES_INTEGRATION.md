@@ -187,6 +187,40 @@ Example MCP parameters:
 
 **Acceptance boundary**: Tests in C# verify the MCP contract and marked CutPilot provenance. Five Python provider tests verify rational FPS, refusal of VFR/range errors and the external module call using a **fake/simulated CutPilot detector**. These are *contract tests only*, not a real OpenCV video-run. Real video samples, Windows path handling, true semantic action recognition, SFX matching and Cubase/Nuendo timeline placement are **NOT_RUN**.
 
+## Slice 13 — local X-CLIP semantic video *candidate* classifier (opt-in)
+
+New MCP entry: `steinberg_foley_xclip_actions` in `SteinbergVisionActionTools.cs`.
+
+- Model: [Microsoft X-CLIP base patch32](https://huggingface.co/microsoft/xclip-base-patch32), marked **MIT** on its model card. It compares **eight decoded RGB frames per short video window** to a fixed set of ten text prompts: walking, running, opening/closing a door, collision, clapping, car driving, fabric handling and two neutral/abstention prompts. This is real *video-to-text similarity inference* when the model is installed; it is **not** pixel-perfect contact tracking, guaranteed action recognition, object tracking, acoustic detection or proof of any audible event.
+- Explicit local model weights are required, with a `config.json`, processor files and `model.safetensors`. The loader uses `XCLIPModel` / `XCLIPProcessor`, **`local_files_only=True`, `use_safetensors=True`, `trust_remote_code=False`**, plus offline environment flags. No implicit model download, pip install, GPU requirement, remote video upload, shell invocation or internal CutPilot copy.
+- Each invocation handles **at most 30 seconds**, up to **12 windows**. Video decoding uses OpenCV; `ffprobe` supplies explicit rational FPS and frame count. An average/nominal FPS mismatch is rejected as potential VFR; agreement is **not** proof of CFR. Candidate positions use the **window center**, not true onset. The fixed vocabulary can miss or confuse actions.
+- Normalized scores are **relative to these ten prompts, not calibrated probabilities**. A non-neutral candidate is emitted only when both `min_relative_score` (default 0.48) and `min_margin` (default 0.12) are exceeded. Every source cue records the window limits, class and score. Ambiguous or neutral windows abstain. No candidates means `NoActionCandidates` and **no manifest** is created.
+- The `steinberg-foley-cues-v1` sheet remains **`draft_requires_approval`**, with `classification_status: unverified_video_text_similarity`, `selection_status: unmatched_requires_review`, `sample_path: null`, `host_action: none`. It is not a Cubase project. No sample license, actor/person identity, scene audio, or native DAW interchange is inferred.
+
+Before use, install Python with matching `torch`, `transformers`, `opencv-python` and image/processor dependencies in a separate local virtual environment. Pre-download model weights only after checking model licensing and source provenance; select the folder explicitly. Example Windows settings:
+
+```powershell
+$env:STEINBERG_XCLIP_PYTHON = "C:\\Tools\\XCLIP\\Scripts\\python.exe"
+$env:STEINBERG_XCLIP_FFPROBE = "C:\\ffmpeg\\bin\\ffprobe.exe"
+```
+
+Example MCP arguments:
+
+```json
+{
+  "tool": "steinberg_foley_xclip_actions",
+  "arguments": {
+    "video_path": "C:\\\\Video\\\\short-clip.mp4",
+    "model_directory": "C:\\\\Models\\\\xclip-base-patch32",
+    "output_manifest": "C:\\\\Exports\\\\short-clip-xclip-review.json",
+    "min_relative_score": 0.48,
+    "min_margin": 0.12
+  }
+}
+```
+
+**Verification boundary:** the Render Linux gate compiles .NET and tests the MCP schema, source window/score preservation and fail-closed settings, plus six dependency-free Python tests with a **simulated classifier**. It **does not download or run the actual 0.2B-parameter model**, and does not test native Windows, commercial acceptance of the training data, accuracy on real footage or Cubase/Nuendo. Do not call these contract tests a real model-inference PASS.
+
 ## Version and acceptance boundaries
 
 - The **existing** broker/driver was validated on Cubase 15, not Cubase 12–14 or Nuendo. Do not advertise those versions as working until host compatibility and API limitations have been tested.

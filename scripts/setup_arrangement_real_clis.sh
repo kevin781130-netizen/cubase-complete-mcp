@@ -38,7 +38,7 @@ python3 -m venv "$ROOT/python313"
 "$ROOT/python313/bin/python" -c \
   'import sys,music21,pretty_midi; assert sys.version_info[:2] == (3,13); print("MIDIVOLT_REAL_DEPENDENCIES_OK",music21.__version__)'
 python3 -c \
-  'import groovemap_next,mido; print("GROOVEMAP_REAL_DEPENDENCIES_OK",mido.__version__)'
+  'import groovemap_next,mido,importlib.metadata; print("GROOVEMAP_REAL_DEPENDENCIES_OK",importlib.metadata.version("mido"))'
 
 # Linux executable wrappers emulate the exact Windows pip entrypoint basename
 # expected by the C# adapter, but run the real Python distribution/CLI.

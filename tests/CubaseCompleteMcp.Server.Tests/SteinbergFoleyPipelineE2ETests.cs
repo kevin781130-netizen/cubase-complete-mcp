@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Globalization;
+using System.Diagnostics;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
@@ -43,6 +44,9 @@ public sealed class SteinbergFoleyPipelineE2ETests
         Assert.Equal(2, exported["audio_files_embedded"]!.GetValue<int>());
         Assert.False(exported["host_modified"]!.GetValue<bool>());
         Assert.Equal("NOT_RUN", exported["actual_cubase_nuendo_import"]!.GetValue<string>());
+
+        if (Environment.GetEnvironmentVariable("STEINBERG_INDEPENDENT_FOLEY_AUDIT") == "1")
+            AssertIndependentAudit(fixture, expectedPass: true);
 
         using var zip = ZipFile.OpenRead(fixture.ExportPath);
         Assert.Equal(4, zip.Entries.Count);
@@ -92,6 +96,57 @@ public sealed class SteinbergFoleyPipelineE2ETests
             fixture.PreDaw, fixture.Timing, fixture.ExportPath, project_bpm: 120, approved: true);
         Assert.Equal("PREIMPORT_BLOCKED", exported["code"]!.GetValue<string>());
         Assert.False(File.Exists(fixture.ExportPath));
+    }
+
+    [Fact]
+    public void SteinbergFoleyPipeline03_IndependentAuditorRejectsTamperedExportedZip()
+    {
+        if (Environment.GetEnvironmentVariable("STEINBERG_INDEPENDENT_FOLEY_AUDIT") != "1")
+            return; // Required by Render's portable gate, optional for Windows users without Python.
+        using var fixture = new Fixture();
+        fixture.BuildApprovedPipeline();
+        var result = new SteinbergFoleyDawprojectTools().Export(
+            fixture.PreDaw, fixture.Timing, fixture.ExportPath, project_bpm: 120, approved: true);
+        Assert.Equal("OkPortableExport", result["status"]!.GetValue<string>());
+        AssertIndependentAudit(fixture, expectedPass: true);
+
+        using (var archive = ZipFile.Open(fixture.ExportPath, ZipArchiveMode.Update))
+        {
+            var targetName = "audio/" + Sha(fixture.OpenWav) + ".wav";
+            var original = archive.GetEntry(targetName)!;
+            original.Delete();
+            var corrupted = File.ReadAllBytes(fixture.OpenWav);
+            corrupted[128] ^= 0x37;
+            using var writable = archive.CreateEntry(targetName).Open();
+            writable.Write(corrupted);
+        }
+        AssertIndependentAudit(fixture, expectedPass: false);
+    }
+
+    private static void AssertIndependentAudit(Fixture fixture, bool expectedPass)
+    {
+        var script = Path.Combine(Directory.GetCurrentDirectory(), "scripts", "audit_foley_dawproject.py");
+        if (!File.Exists(script))
+            script = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,
+                "..", "..", "..", "..", "..", "scripts", "audit_foley_dawproject.py"));
+        Assert.True(File.Exists(script), "Independent Foley ZIP auditor script missing: " + script);
+        var psi = new ProcessStartInfo("python3") { UseShellExecute = false,
+            RedirectStandardOutput = true, RedirectStandardError = true };
+        foreach (var argument in new[] { script, fixture.ExportPath, fixture.PreDaw, fixture.Timing })
+            psi.ArgumentList.Add(argument);
+        using var process = Process.Start(psi);
+        Assert.NotNull(process);
+        if (!process!.WaitForExit(30000))
+        {
+            process.Kill(entireProcessTree: true);
+            Assert.Fail("Python independent package auditor timed out.");
+        }
+        var stdout = process.StandardOutput.ReadToEnd();
+        var stderr = process.StandardError.ReadToEnd();
+        Assert.True(expectedPass ? process.ExitCode == 0 : process.ExitCode != 0,
+            "Unexpected independent auditor result: " + stdout + " " + stderr);
+        Assert.Contains(expectedPass ? "PASS_INDEPENDENT_FOLEY_DAWPROJECT_AUDIT_ONLY" :
+            "AUDIT_FAIL_CLOSED", stdout);
     }
 
     private static void ValidateXsd(ZipArchive zip, string entry, string schema)

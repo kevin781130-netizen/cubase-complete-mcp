@@ -356,9 +356,13 @@ function Invoke-WindowsScriptSelfTest {
 
 try {
     Enter-Stage 'WINDOWS_HOST'
-    if ($env:OS -cne 'Windows_NT') {
+    # Do not trust the user-editable OS environment variable as proof of
+    # Windows: an env:OS override on Linux must never produce a native PASS.
+    $isNativeWindows = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform(
+        [System.Runtime.InteropServices.OSPlatform]::Windows)
+    if (-not $isNativeWindows -or $env:OS -cne 'Windows_NT') {
         $report.status='BLOCKED_NOT_WINDOWS'
-        throw 'Windows PowerShell host is required for Windows-specific acceptance evidence.'
+        throw 'Native Windows PowerShell host is required for Windows-specific acceptance evidence.'
     }
     Complete-Stage
     if ($SelfTest.IsPresent) {

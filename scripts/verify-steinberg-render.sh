@@ -51,6 +51,12 @@ python3 -m unittest discover -s tests/python -p 'test_cutpilot_foley_provider.py
 
 echo STEINBERG_XCLIP_OFFLINE_CONTRACT_TEST_BEGIN
 python3 -m unittest discover -s tests/python -p 'test_xclip_foley_action_provider.py' -v
+echo STEINBERG_CUTPILOT_REAL_MP4_BEGIN
+# Real OpenCV/MP4/ffprobe smoke: downstream CutPilot scene module is fetched
+# from a pinned commit and checked against its Git blob SHA. No host/DAW.
+python3 -m pip install --no-cache-dir --disable-pip-version-check opencv-python-headless==4.14.0.94
+python3 scripts/verify_cutpilot_real_video.py --output .render-steinberg-proof/cutpilot-real-video.json
+echo STEINBERG_CUTPILOT_REAL_MP4_PASS
 echo STEINBERG_FOLEY_INDEPENDENT_AUDITOR_TEST_BEGIN
 python3 - <<'PY'
 import json
@@ -79,6 +85,16 @@ head, trxpath = sys.argv[1:]
 path = Path(trxpath)
 if not path.is_file():
     raise SystemExit('FAIL_NO_TRX')
+cutpilot_path = Path('.render-steinberg-proof/cutpilot-real-video.json')
+if not cutpilot_path.is_file():
+    raise SystemExit('FAIL_MISSING_REAL_CUTPILOT_VIDEO_EVIDENCE')
+cutpilot_result = json.loads(cutpilot_path.read_text(encoding='utf-8'))
+if (cutpilot_result.get('status') != 'PASS_REAL_OPENCV_CUTPILOT_DECODED_SYNTHETIC_MP4_ONLY'
+        or cutpilot_result.get('cutpilot_source_commit') != 'c534cd56e8507288b20c1d55fcb5b8d9e8229ea4'
+        or cutpilot_result.get('scene_cut_frames') != [30, 60]
+        or cutpilot_result.get('real_opencv_decoder') is not True
+        or cutpilot_result.get('invalid_mp4_rejected') is not True):
+    raise SystemExit('FAIL_INDEPENDENT_REAL_CUTPILOT_VIDEO_EVIDENCE')
 root = ET.parse(path).getroot()
 tests = [e for e in root.iter() if e.tag.rsplit('}', 1)[-1] == 'UnitTestResult']
 passed = [e for e in tests if e.get('outcome') == 'Passed']
@@ -99,7 +115,8 @@ report = {
     'independent_python_foley_auditor': 'PASS_FILE_ONLY_PACKAGE_READBACK_AND_SHA_NEGATIVE',
     'independent_python_auditor_mutation_tests': {'executed': 13, 'passed': 13, 'source': 'validated unittest result above'},
     'cutpilot_python_contract_tests': 'PASS_5_OF_5_SIMULATED_SCENE_DETECTOR',
-    'real_cutpilot_opencv_video': 'NOT_RUN',
+    'real_cutpilot_opencv_video': 'PASS_DECODED_SYNTHETIC_MP4_ONLY',
+    'real_cutpilot_video_evidence': cutpilot_result,
     'xclip_python_contract_tests': 'PASS_6_OF_6_SIMULATED_INFERENCE_NO_MODEL_WEIGHTS',
     'real_xclip_pretrained_weights_inference': 'NOT_RUN',
     'executed_tests': len(tests),

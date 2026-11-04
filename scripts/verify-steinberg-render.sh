@@ -52,8 +52,23 @@ python3 -m unittest discover -s tests/python -p 'test_cutpilot_foley_provider.py
 echo STEINBERG_XCLIP_OFFLINE_CONTRACT_TEST_BEGIN
 python3 -m unittest discover -s tests/python -p 'test_xclip_foley_action_provider.py' -v
 echo STEINBERG_FOLEY_INDEPENDENT_AUDITOR_TEST_BEGIN
-python3 -m unittest discover -s tests/python -p 'test_foley_dawproject_audit.py' -v
-echo STEINBERG_FOLEY_INDEPENDENT_AUDITOR_TESTS_PASS
+python3 - <<'PY'
+import json
+import unittest
+
+suite = unittest.defaultTestLoader.discover(
+    start_dir='tests/python', pattern='test_foley_dawproject_audit.py')
+count = suite.countTestCases()
+if count != 13:
+    raise SystemExit(f'FAIL_INDEPENDENT_AUDIT_DISCOVERY: expected 13, found {count}')
+result = unittest.TextTestRunner(verbosity=2).run(suite)
+if not result.wasSuccessful() or result.testsRun != count:
+    raise SystemExit(
+        f'FAIL_INDEPENDENT_AUDITOR: ran={result.testsRun}, failures={len(result.failures)}, errors={len(result.errors)}')
+print('STEINBERG_FOLEY_INDEPENDENT_AUDITOR_TESTS_PASS ' +
+      json.dumps({'executed': result.testsRun, 'passed': result.testsRun,
+                  'failed': 0, 'errors': 0}))
+PY
 echo STEINBERG_WINDOWS_FOLEY_STATIC_SOURCE_CONTRACT_TEST_BEGIN
 python3 -m unittest discover -s tests/python -p 'test_steinberg_windows_foley_entry.py' -v
 
@@ -82,14 +97,15 @@ report = {
     'source_head': head,
     'scope': '.NET compile, XSD, synthetic end-to-end Foley export, independent Python readback and negative ZIP mutation',
     'independent_python_foley_auditor': 'PASS_FILE_ONLY_PACKAGE_READBACK_AND_SHA_NEGATIVE',
-    'independent_python_auditor_mutation_tests': 'PASS_13_OF_13_OFFLINE',
+    'independent_python_auditor_mutation_tests': {'executed': 13, 'passed': 13, 'source': 'validated unittest result above'},
     'cutpilot_python_contract_tests': 'PASS_5_OF_5_SIMULATED_SCENE_DETECTOR',
     'real_cutpilot_opencv_video': 'NOT_RUN',
     'xclip_python_contract_tests': 'PASS_6_OF_6_SIMULATED_INFERENCE_NO_MODEL_WEIGHTS',
     'real_xclip_pretrained_weights_inference': 'NOT_RUN',
     'executed_tests': len(tests),
     'passed_tests': len(passed),
-    'official_xsd_tests': list(required),
+    'official_xsd_tests': list(required[:2]),
+    'required_foley_e2e_tests': list(required[2:]),
     'windows_powershell_script_static_contract_tests': 'PASS_19_OF_19_SOURCE_ONLY',
     'windows_powershell_runtime_execution': 'NOT_RUN',
     'windows_native': 'NOT_RUN',

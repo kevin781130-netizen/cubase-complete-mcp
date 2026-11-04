@@ -95,6 +95,32 @@ python3 scripts/verify_arrangement_real_clis.py \
   --groovemap-exe "$STEINBERG_GROOVEMAP_EXE" \
   --output-dir .render-steinberg-proof/arrangement-real-e2e
 echo STEINBERG_REAL_ARRANGEMENT_EXTERNAL_CLI_COMPLETE
+echo STEINBERG_REAL_BEAT_THIS_FINAL0_BEGIN
+# Official authors confirmed commercial MIT permission for checkpoints.
+# Checksum is developer-confirmed in upstream beat_this issue #20.
+# Only synthesized WAV is used; no copyrighted recording and no model bundling.
+# Install CPU-only torch to avoid accidental CUDA binaries or GPU requirement.
+python3 -m pip install -q --disable-pip-version-check --no-cache-dir \
+  --index-url https://download.pytorch.org/whl/cpu \
+  'torch==2.9.1+cpu' 'torchaudio==2.9.1+cpu'
+python3 -m pip install -q --disable-pip-version-check --no-cache-dir \
+  --no-deps 'beat-this==1.1.0'
+python3 -m pip install -q --disable-pip-version-check --no-cache-dir \
+  'soxr>=0.5,<1' 'einops>=0.8,<1' 'rotary-embedding-torch>=0.8,<1'
+MODEL_PATH="$STEINBERG_ARRANGEMENT_ENV_ROOT/beat_this-final0.ckpt"
+# Author-maintained, upstream-author-confirmed official checkpoint mirror.
+# Unlike runtime auto-download, never attempt to load a file before SHA gate.
+curl -fLSs --retry 2 --connect-timeout 15 --max-time 150 \
+  'https://f0k.de/pubs/2024_ismir/beat_this-final0.ckpt' \
+  --output "$MODEL_PATH"
+printf '%s  %s\n' '8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331' "$MODEL_PATH" \
+  | sha256sum --check --status || { echo BEAT_THIS_OFFICIAL_MODEL_SHA_MISMATCH; exit 43; }
+mkdir -p .render-steinberg-proof/beatthis-final0
+OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 OPENBLAS_NUM_THREADS=1 \
+  timeout 300s python3 scripts/verify_beat_this_real.py \
+  --checkpoint "$MODEL_PATH" \
+  --output-dir .render-steinberg-proof/beatthis-final0
+echo STEINBERG_REAL_BEAT_THIS_FINAL0_COMPLETE
 echo STEINBERG_WINDOWS_FOLEY_STATIC_SOURCE_CONTRACT_TEST_BEGIN
 python3 -m unittest discover -s tests/python -p 'test_steinberg_windows_foley_entry.py' -v
 
@@ -128,6 +154,20 @@ names = [e.get('testName', '') for e in passed]
 missing = [req for req in required if not any(req in name for name in names)]
 if not tests or len(tests) != len(passed) or missing:
     raise SystemExit(f'FAIL_TRX_GATE {len(passed)}/{len(tests)} missing={missing}')
+beat_path=Path('.render-steinberg-proof/beatthis-final0/report.json')
+if not beat_path.is_file():
+    raise SystemExit('FAIL_NO_REAL_BEAT_THIS_FINAL0_PROOF')
+beat_this_evidence=json.loads(beat_path.read_text(encoding='utf-8'))
+if (beat_this_evidence.get('status') != 'PASS_REAL_BEAT_THIS_FINAL0_GROOVEMAP_SYNTHETIC_WAV_TO_TEMPO_MIDI_ONLY'
+        or beat_this_evidence.get('model_sha256') != '8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331'
+        or beat_this_evidence.get('beat_source') != 'CPJKU/beat_this:minimal'
+        or beat_this_evidence.get('groovemap_source_head') != '3b9bc6d5a26212b35c92d91c1fd902061b187440'
+        or beat_this_evidence.get('real_model') is not True
+        or beat_this_evidence.get('source_audio_unchanged') is not True
+        or beat_this_evidence.get('tempo_midi_events',0) < 4
+        or beat_this_evidence.get('drum_note_events',0) < 1
+        or beat_this_evidence.get('input_audio') != 'LOCALLY_SYNTHESIZED_DRUM_STEM_NOT_SUNO'):
+    raise SystemExit('FAIL_REAL_BEAT_THIS_FINAL0_PROOF_CONTRACT')
 real_path=Path('.render-steinberg-proof/arrangement-real-e2e/report.json')
 if not real_path.is_file():
     raise SystemExit('FAIL_NO_EXTERNAL_ARRANGEMENT_CLI_EVIDENCE')
@@ -152,13 +192,14 @@ if (len(arr_results)!=1 or arr_results[0].get('outcome')!='Passed'
 report = {
     'status': 'PASS_LINUX_PORTABLE_ONLY',
     'source_head': head,
-    'scope': '.NET Steinberg tests, real CutPilot MP4, real MIDIVOLT MCP CLI, real GrooveMap MIDI humanize; Beat This checkpoint NOT_RUN',
+    'scope': '.NET Steinberg tests, real CutPilot MP4, real MIDIVOLT MCP CLI, real GrooveMap MIDI humanize; Beat This final0 inference PASS for synthetic WAV only',
     'independent_python_foley_auditor': 'PASS_FILE_ONLY_PACKAGE_READBACK_AND_SHA_NEGATIVE',
     'independent_python_auditor_mutation_tests': {'executed': 13, 'passed': 13, 'source': 'validated unittest result above'},
     'cutpilot_python_contract_tests': 'PASS_5_OF_5_SIMULATED_SCENE_DETECTOR',
     'real_cutpilot_opencv_video': 'PASS_DECODED_SYNTHETIC_MP4_ONLY',
     'real_cutpilot_video_evidence': cutpilot_result,
     'real_external_arrangement_cli': arrangement,
+    'real_beat_this_final0': beat_this_evidence,
     'real_external_arrangement_mcp_execution': 'PASS_ONE_REAL_MIDIVOLT_PROVIDER_PROCESS',
     'xclip_python_contract_tests': 'PASS_6_OF_6_SIMULATED_INFERENCE_NO_MODEL_WEIGHTS',
     'real_xclip_pretrained_weights_inference': 'NOT_RUN',

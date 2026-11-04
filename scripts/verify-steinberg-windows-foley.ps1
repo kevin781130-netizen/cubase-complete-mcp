@@ -374,92 +374,7 @@ try {
     $report.source_head=[string](& git -C $root rev-parse HEAD)
     if ($LASTEXITCODE -ne 0 -or
         $report.source_branch -cne 'feat/steinberg-dualmode-adapters-20261104' -or
-        $report.source_head -notmatch '^[0-9a-f]{40}
-        Invoke-WindowsScriptSelfTest
-        Complete-Stage
-        $report.failure_code='NONE'
-        $report.status='PASS_WINDOWS_SCRIPT_SELFTEST_ONLY'
-        $report.message='Native Windows PowerShell synthetic WAV RIFF/header, byte-hash and SMPTE arithmetic passed. Offline .NET tests, real media review and Cubase/Nuendo import are NOT_RUN.'
-    } else {
-    Enter-Stage 'DOTNET_OFFLINE_XSD_AND_MCP'
-    $sdk=Get-Command dotnet -ErrorAction SilentlyContinue
-    if ($null -ne $sdk) {
-        $report.environment.dotnet_sdk_version=[string](& dotnet --version)
-    }
-    $offlineScript=Join-Path $PSScriptRoot 'verify-steinberg-offline.ps1'
-    if (-not (Test-Path -LiteralPath $offlineScript -PathType Leaf)) {
-        $report.status='ENVIRONMENT_BLOCKED'; throw 'Strict-offline Steinberg gate missing.'
-    }
-    $offlineDir=Join-Path $run 'offline-dotnet'
-    New-Item -Path $offlineDir -ItemType Directory | Out-Null
-    $hostExecutable=(Get-Process -Id $PID).Path
-    # Capture the actual child stdout/stderr in this run's evidence folder.
-    # No network-policy workarounds, shell evaluation or background workers.
-    $offlineLog=Join-Path $run 'dotnet-offline-output.log'
-    $report.offline_output_log=$offlineLog
-    & $hostExecutable -NoLogo -NoProfile -NonInteractive -File $offlineScript -ResultsDirectory $offlineDir *> $offlineLog
-    $exitCode=$LASTEXITCODE
-    $offlineFile=Join-Path $offlineDir 'steinberg-offline-verification.json'
-    if (-not (Test-Path -LiteralPath $offlineFile -PathType Leaf)) {
-        $report.status='ENVIRONMENT_BLOCKED'; throw 'Offline gate did not produce JSON evidence.'
-    }
-    $proof=Json-File $offlineFile
-    $report.offline_evidence=$offlineFile
-    $report.offline_gate=[string]$proof.status
-    $report.offline_tests_passed=[int]$proof.passed_tests
-    if ($exitCode -ne 0 -or $proof.status -cne 'PASS_OFFLINE_ONLY' -or
-        [int]$proof.executed_tests -lt 1 -or
-        [int]$proof.passed_tests -ne [int]$proof.executed_tests -or
-        $proof.official_xsd_test -cne 'PASS' -or
-        $proof.head -cne $report.source_head) {
-        $report.status='ENVIRONMENT_BLOCKED'
-        throw ('Offline dotnet/build/XSD/MCP gate failed: '+[string]$proof.status+'; '+[string]$proof.message)
-    }
-    Complete-Stage
-    Enter-Stage 'HUMAN_REVIEW_INPUTS'
-    if ([string]::IsNullOrWhiteSpace($PreDawManifest) -or
-        [string]::IsNullOrWhiteSpace($TimingReview)) {
-        $report.status='BLOCKED_MISSING_HUMAN_REVIEW_INPUTS'
-        throw 'Offline gate passed; human-approved Foley audio manifest and timing review are missing.'
-    }
-    Complete-Stage
-    Enter-Stage 'VIDEO_AND_AUDIO_SHA256_TIMECODE_TRACKS'
-    Verify-Inputs $PreDawManifest $TimingReview
-    Complete-Stage
-    $report.failure_code='NONE'
-    $report.status='PASS_FILE_ONLY_WINDOWS_PREFLIGHT'
-    $report.message='No DAW mutation. Source SHA, offline tests, audio/video SHA and human-declared timecode/track inputs passed; real import NOT_RUN.'
-    }
-} catch {
-    if ($report.status -eq 'NOT_RUN') { $report.status='FAIL_CLOSED' }
-    # Stable machine-readable blocker code + phase: no misleading host PASS.
-    $codes=@{
-        'WINDOWS_HOST'='NOT_WINDOWS'
-        'WINDOWS_NATIVE_SCRIPT_SELFTEST'='WINDOWS_SELFTEST_FAILURE'
-        'SOURCE_GIT_IDENTITY'='SOURCE_BRANCH_OR_WORKTREE'
-        'DOTNET_OFFLINE_XSD_AND_MCP'='DOTNET_RESTORE_BUILD_TEST_OR_XSD'
-        'HUMAN_REVIEW_INPUTS'='HUMAN_APPROVAL_FILES_MISSING'
-        'VIDEO_AND_AUDIO_SHA256_TIMECODE_TRACKS'='MEDIA_HASH_OR_TIMECODE_OR_TRACK'
-    }
-    $report.failure_code=[string]$codes[[string]$report.phase]
-    if ([string]::IsNullOrWhiteSpace($report.failure_code)) {
-        $report.failure_code='UNCLASSIFIED_PRECHECK_FAILURE'
-    }
-    $report.error_type=$_.Exception.GetType().FullName
-    if ($report.stage_history.Count -gt 0) {
-        $report.stage_history[-1].status='BLOCKED'
-    }
-    $report.message=$_.Exception.Message
-} finally {
-    ($report | ConvertTo-Json -Depth 12) | Set-Content -LiteralPath $reportFile -Encoding UTF8
-    Write-Host ('Windows Foley preflight: '+$report.status)
-    Write-Host ('Blocked phase: '+$report.phase)
-    Write-Host ('Failure code: '+$report.failure_code)
-    Write-Host ('Evidence: '+$reportFile)
-    Write-Host 'Cubase/Nuendo real import: NOT_RUN'
-}
-if ($report.status -cnotin @('PASS_FILE_ONLY_WINDOWS_PREFLIGHT','PASS_WINDOWS_SCRIPT_SELFTEST_ONLY')) { exit 1 }
-) {
+        $report.source_head -notmatch '^[0-9a-f]{40}$') {
         $report.status='BLOCKED_SOURCE_BRANCH'
         throw 'Use the named Steinberg feature branch, not main or a detached HEAD.'
     }
@@ -471,7 +386,7 @@ if ($report.status -cnotin @('PASS_FILE_ONLY_WINDOWS_PREFLIGHT','PASS_WINDOWS_SC
     $report.origin_feature_head=[string](& git -C $root rev-parse --verify refs/remotes/origin/feat/steinberg-dualmode-adapters-20261104)
     if ($LASTEXITCODE -ne 0 -or $report.origin_feature_head -cne $report.source_head) {
         $report.status='BLOCKED_SOURCE_BRANCH'
-        throw 'Local source HEAD must match the checked-out origin feature ref.'
+        throw 'Local HEAD differs from origin feature branch; source identity cannot be attested.'
     }
     $report.source_clean=$true
     Complete-Stage
@@ -483,26 +398,6 @@ if ($report.status -cnotin @('PASS_FILE_ONLY_WINDOWS_PREFLIGHT','PASS_WINDOWS_SC
         $report.status='PASS_WINDOWS_SCRIPT_SELFTEST_ONLY'
         $report.message='Native Windows PowerShell synthetic WAV RIFF/header, byte-hash and SMPTE arithmetic passed. Offline .NET tests, real media review and Cubase/Nuendo import are NOT_RUN.'
     } else {
-    Enter-Stage 'SOURCE_GIT_IDENTITY'
-    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-        $report.status='ENVIRONMENT_BLOCKED'; throw 'Git unavailable.'
-    }
-    $report.environment.git_version=[string](& git --version)
-    $report.source_branch=[string](& git -C $root branch --show-current)
-    $report.source_head=[string](& git -C $root rev-parse HEAD)
-    if ($LASTEXITCODE -ne 0 -or
-        $report.source_branch -cne 'feat/steinberg-dualmode-adapters-20261104' -or
-        $report.source_head -notmatch '^[0-9a-f]{40}$') {
-        $report.status='BLOCKED_SOURCE_BRANCH'
-        throw 'Use the named Steinberg feature branch, not main or a detached HEAD.'
-    }
-    $changes=@(& git -C $root status --porcelain)
-    if ($LASTEXITCODE -ne 0 -or $changes.Count -gt 0) {
-        $report.status='BLOCKED_DIRTY_TREE'
-        throw 'Working tree has changes not covered by the recorded Git SHA.'
-    }
-    $report.source_clean=$true
-    Complete-Stage
     Enter-Stage 'DOTNET_OFFLINE_XSD_AND_MCP'
     $sdk=Get-Command dotnet -ErrorAction SilentlyContinue
     if ($null -ne $sdk) {

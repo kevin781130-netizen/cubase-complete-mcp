@@ -121,13 +121,35 @@ OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 OPENBLAS_NUM_THREADS=1 \
   --checkpoint "$MODEL_PATH" \
   --output-dir .render-steinberg-proof/beatthis-final0
 echo STEINBERG_REAL_BEAT_THIS_FINAL0_COMPLETE
+echo STEINBERG_REAL_MCP_ARRANGE_TEMPO_BEGIN
+# Exercise genuine .NET MCP adapter -> installed GrooveMap CLI ->
+# SHA-verified Beat This final0 with already synthesized source WAV.
+# No live DAW process, no user-provided music.
+MCP_TEMPO_TRX="real-mcp-tempo-$(printf '%s' "$HEAD" | cut -c 1-12).trx"
+export STEINBERG_REAL_TEMPO_MCP_E2E=1
+export STEINBERG_REAL_TEMPO_MCP_CHECKPOINT="$MODEL_PATH"
+export STEINBERG_REAL_TEMPO_MCP_WAV="$PWD/.render-steinberg-proof/beatthis-final0/synthesized-120bpm-drum-stem.wav"
+export STEINBERG_REAL_TEMPO_MCP_OUTDIR="$PWD/.render-steinberg-proof/mcp-real-tempo"
+mkdir -p "$STEINBERG_REAL_TEMPO_MCP_OUTDIR"
+test -f "$STEINBERG_REAL_TEMPO_MCP_WAV"
+OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 OPENBLAS_NUM_THREADS=1 \
+  dotnet test tests/CubaseCompleteMcp.Server.Tests/CubaseCompleteMcp.Server.Tests.csproj \
+  -c Release --no-build --no-restore -p:EnableWindowsTargeting=true \
+  --filter 'FullyQualifiedName~ArrangementRealTempoMcp' \
+  --logger "trx;LogFileName=$MCP_TEMPO_TRX" \
+  --results-directory .render-steinberg-proof
+python3 scripts/audit_real_mcp_tempo.py \
+  --output-dir "$STEINBERG_REAL_TEMPO_MCP_OUTDIR" \
+  --wav "$STEINBERG_REAL_TEMPO_MCP_WAV" \
+  --independent-report .render-steinberg-proof/beatthis-final0/report.json
+echo STEINBERG_REAL_MCP_ARRANGE_TEMPO_COMPLETE
 echo STEINBERG_WINDOWS_FOLEY_STATIC_SOURCE_CONTRACT_TEST_BEGIN
 python3 -m unittest discover -s tests/python -p 'test_steinberg_windows_foley_entry.py' -v
 
-python3 - "$HEAD" ".render-steinberg-proof/$TRX" ".render-steinberg-proof/$ARR_TRX" <<'PY'
+python3 - "$HEAD" ".render-steinberg-proof/$TRX" ".render-steinberg-proof/$ARR_TRX" ".render-steinberg-proof/$MCP_TEMPO_TRX" <<'PY'
 import json, sys, xml.etree.ElementTree as ET
 from pathlib import Path
-head, trxpath, real_trxpath = sys.argv[1:]
+head, trxpath, real_trxpath, tempo_mcp_trxpath = sys.argv[1:]
 path = Path(trxpath)
 if not path.is_file():
     raise SystemExit('FAIL_NO_TRX')
@@ -189,10 +211,35 @@ if (len(arr_results)!=1 or arr_results[0].get('outcome')!='Passed'
         not in arr_results[0].get('testName','')):
     raise SystemExit('FAIL_REAL_MCP_EXTERNAL_PROVIDER_TRX')
 
+mcp_tempo_path=Path('.render-steinberg-proof/mcp-real-tempo/report.json')
+if not mcp_tempo_path.is_file():
+    raise SystemExit('FAIL_MISSING_REAL_MCP_TEMPO_READBACK')
+real_mcp_tempo=json.loads(mcp_tempo_path.read_text(encoding='utf-8'))
+if (real_mcp_tempo.get('status') !=
+        'PASS_REAL_STEINBERG_MCP_TO_GROOVEMAP_BEAT_THIS_FINAL0_SYNTHETIC_WAV'
+        or real_mcp_tempo.get('verified_model_sha256') !=
+        '8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331'
+        or real_mcp_tempo.get('mcp_beat_source') != 'CPJKU/beat_this:minimal'
+        or real_mcp_tempo.get('original_wav_unchanged') is not True
+        or real_mcp_tempo.get('tempo_meta_events',0) < 4
+        or real_mcp_tempo.get('drum_midi_note_ons',0) < 1
+        or real_mcp_tempo.get('cubase_nuendo_import') != 'NOT_RUN'):
+    raise SystemExit('FAIL_REAL_MCP_TEMPO_EVIDENCE_CONTRACT')
+mcp_trx_path=Path(tempo_mcp_trxpath)
+if not mcp_trx_path.is_file():
+    raise SystemExit('FAIL_MISSING_REAL_MCP_TEMPO_TRX')
+mcp_trx_root=ET.parse(mcp_trx_path).getroot()
+mcp_trx_results=[e for e in mcp_trx_root.iter()
+                 if e.tag.rsplit('}',1)[-1]=='UnitTestResult']
+if (len(mcp_trx_results) != 1
+        or mcp_trx_results[0].get('outcome') != 'Passed'
+        or 'ArrangementRealTempoMcp01_ActualGrooveMapWithFinal0ProducesTempoAndDrumMidi'
+        not in mcp_trx_results[0].get('testName','')):
+    raise SystemExit('FAIL_REAL_MCP_TEMPO_TRX')
 report = {
     'status': 'PASS_LINUX_PORTABLE_ONLY',
     'source_head': head,
-    'scope': '.NET Steinberg tests, real CutPilot MP4, real MIDIVOLT MCP CLI, real GrooveMap MIDI humanize; Beat This final0 inference PASS for synthetic WAV only',
+    'scope': '.NET Steinberg tests; real CutPilot MP4; real MIDIVOLT MCP CLI; real GrooveMap CLI; Beat This final0 direct and via .NET MCP using synthesized WAV only',
     'independent_python_foley_auditor': 'PASS_FILE_ONLY_PACKAGE_READBACK_AND_SHA_NEGATIVE',
     'independent_python_auditor_mutation_tests': {'executed': 13, 'passed': 13, 'source': 'validated unittest result above'},
     'cutpilot_python_contract_tests': 'PASS_5_OF_5_SIMULATED_SCENE_DETECTOR',
@@ -200,6 +247,8 @@ report = {
     'real_cutpilot_video_evidence': cutpilot_result,
     'real_external_arrangement_cli': arrangement,
     'real_beat_this_final0': beat_this_evidence,
+    'real_steinberg_mcp_arrange_tempo': real_mcp_tempo,
+    'real_steinberg_mcp_tempo_trx': 'PASS_ONE_REAL_GROOVEMAP_BEAT_THIS_PROCESS',
     'real_external_arrangement_mcp_execution': 'PASS_ONE_REAL_MIDIVOLT_PROVIDER_PROCESS',
     'xclip_python_contract_tests': 'PASS_6_OF_6_SIMULATED_INFERENCE_NO_MODEL_WEIGHTS',
     'real_xclip_pretrained_weights_inference': 'NOT_RUN',

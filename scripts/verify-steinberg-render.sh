@@ -46,6 +46,23 @@ STEINBERG_INDEPENDENT_FOLEY_AUDIT=1 dotnet test tests/CubaseCompleteMcp.Server.T
   --logger "trx;LogFileName=$TRX" \
   --results-directory .render-steinberg-proof
 
+echo STEINBERG_NONDEVICE_DOTNET_SUITE_BEGIN
+# Test BOTH solution test projects, not only the earlier 58-case Steinberg
+# name filter. The two host/provider acceptance methods are executed later,
+# with their actual external CLIs and SHA-verified model enabled.
+FULL_CORE_TRX="rc-core-$(printf '%s' "$HEAD" | cut -c 1-12).trx"
+FULL_SERVER_TRX="rc-server-$(printf '%s' "$HEAD" | cut -c 1-12).trx"
+dotnet test tests/CubaseCompleteMcp.Tests/CubaseCompleteMcp.Tests.csproj \
+  -c Release --no-build --no-restore -p:EnableWindowsTargeting=true \
+  --logger "trx;LogFileName=$FULL_CORE_TRX" \
+  --results-directory .render-steinberg-proof
+dotnet test tests/CubaseCompleteMcp.Server.Tests/CubaseCompleteMcp.Server.Tests.csproj \
+  -c Release --no-build --no-restore -p:EnableWindowsTargeting=true \
+  --filter 'FullyQualifiedName!~ArrangementRealCli&FullyQualifiedName!~ArrangementRealTempoMcp' \
+  --logger "trx;LogFileName=$FULL_SERVER_TRX" \
+  --results-directory .render-steinberg-proof
+echo STEINBERG_NONDEVICE_DOTNET_SUITE_COMPLETE
+
 echo STEINBERG_CUTPILOT_PROVIDER_TEST_BEGIN
 python3 -m unittest discover -s tests/python -p 'test_cutpilot_foley_provider.py' -v
 
@@ -146,10 +163,10 @@ echo STEINBERG_REAL_MCP_ARRANGE_TEMPO_COMPLETE
 echo STEINBERG_WINDOWS_FOLEY_STATIC_SOURCE_CONTRACT_TEST_BEGIN
 python3 -m unittest discover -s tests/python -p 'test_steinberg_windows_foley_entry.py' -v
 
-python3 - "$HEAD" ".render-steinberg-proof/$TRX" ".render-steinberg-proof/$ARR_TRX" ".render-steinberg-proof/$MCP_TEMPO_TRX" <<'PY'
+python3 - "$HEAD" ".render-steinberg-proof/$TRX" ".render-steinberg-proof/$ARR_TRX" ".render-steinberg-proof/$MCP_TEMPO_TRX" ".render-steinberg-proof/$FULL_CORE_TRX" ".render-steinberg-proof/$FULL_SERVER_TRX" <<'PY'
 import json, sys, xml.etree.ElementTree as ET
 from pathlib import Path
-head, trxpath, real_trxpath, tempo_mcp_trxpath = sys.argv[1:]
+head, trxpath, real_trxpath, tempo_mcp_trxpath, core_trxpath, server_trxpath = sys.argv[1:]
 path = Path(trxpath)
 if not path.is_file():
     raise SystemExit('FAIL_NO_TRX')
@@ -236,6 +253,22 @@ if (len(mcp_trx_results) != 1
         or 'ArrangementRealTempoMcp01_ActualGrooveMapWithFinal0ProducesTempoAndDrumMidi'
         not in mcp_trx_results[0].get('testName','')):
     raise SystemExit('FAIL_REAL_MCP_TEMPO_TRX')
+def require_complete_trx(path_text, label):
+    path=Path(path_text)
+    if not path.is_file():
+        raise SystemExit('FAIL_RC_TEST_REPORT_MISSING_'+label)
+    tree=ET.parse(path).getroot()
+    cases=[x for x in tree.iter() if x.tag.rsplit('}',1)[-1]=='UnitTestResult']
+    successes=sum(x.get('outcome')=='Passed' for x in cases)
+    if not cases or len(cases)!=successes:
+        raise SystemExit(f'FAIL_RC_DOTNET_{label} {successes}/{len(cases)}')
+    return {'executed':len(cases),'passed':successes,'failed':0,
+            'suite':label,'test_report':path.name}
+rc_core=require_complete_trx(core_trxpath,'CORE_BROKER_CLI')
+rc_server=require_complete_trx(server_trxpath,'SERVER_EXCLUDING_TWO_REAL_EXTERNAL_CASES')
+print('STEINBERG_RC_FULL_DOTNET_BASELINE_PASS ' +
+      json.dumps({'core_broker_cli':rc_core,'server':rc_server}))
+
 report = {
     'status': 'PASS_LINUX_PORTABLE_ONLY',
     'source_head': head,
@@ -252,6 +285,8 @@ report = {
     'real_external_arrangement_mcp_execution': 'PASS_ONE_REAL_MIDIVOLT_PROVIDER_PROCESS',
     'xclip_python_contract_tests': 'PASS_6_OF_6_SIMULATED_INFERENCE_NO_MODEL_WEIGHTS',
     'real_xclip_pretrained_weights_inference': 'NOT_RUN',
+    'rc_nondevice_dotnet_suites': {'core_broker_cli': rc_core, 'server': rc_server},
+    'rc_separate_real_provider_trx_count': 2,
     'executed_tests': len(tests),
     'passed_tests': len(passed),
     'official_xsd_tests': list(required[:2]),

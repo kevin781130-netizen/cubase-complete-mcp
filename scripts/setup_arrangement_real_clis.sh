@@ -21,18 +21,20 @@ test "$(git -C "$ROOT/MIDIVOLT" rev-parse HEAD)" = "$MIDI_SHA" \
   || { echo MIDIVOLT_SOURCE_HEAD_MISMATCH; return 52; }
 echo "STEINBERG_ARRANGEMENT_UPSTREAM_HEADS_PINNED groove=$GROOVE_SHA midi=$MIDI_SHA"
 
-# The active Render Python version is 3.14, supported by GrooveMap's core
-# but NOT MIDIVOLT (Python >=3.11,<3.14). Use separate Python 3.13 venv.
+# Render's native Python service is explicitly pinned to 3.13.11.
+# Both GrooveMap and MIDIVOLT support this runtime. No managed Python downloads.
 echo STEINBERG_ARRANGEMENT_REAL_DEPENDENCIES_BEGIN
+python3 - <<'PY'
+import sys
+assert sys.version_info[:2] == (3, 13), (
+    "SUPPORTED_RENDER_PYTHON_313_REQUIRED; got " + sys.version)
+print("STEINBERG_RENDER_NATIVE_PY313_OK")
+PY
 python3 -m pip install -q --disable-pip-version-check --no-cache-dir \
-  -e "$ROOT/GrooveMap/groovemap_next" uv==0.9.17
-
-# Render disables implicit uv interpreter downloads. This explicit,
-# isolated cloud test opts into a supported CPython 3.13 interpreter only;
-# network policies remain in force and an inaccessible download fails closed.
-UV_PYTHON_DOWNLOADS=automatic UV_PYTHON_PREFERENCE=only-managed python3 -m uv venv --python 3.13 --seed "$ROOT/python313"
-python3 -m uv pip install --python "$ROOT/python313/bin/python" \
-  -e "$ROOT/MIDIVOLT"
+  -e "$ROOT/GrooveMap/groovemap_next"
+python3 -m venv "$ROOT/python313"
+"$ROOT/python313/bin/python" -m pip install -q \
+  --disable-pip-version-check --no-cache-dir -e "$ROOT/MIDIVOLT"
 "$ROOT/python313/bin/python" -c \
   'import sys,music21,pretty_midi; assert sys.version_info[:2] == (3,13); print("MIDIVOLT_REAL_DEPENDENCIES_OK",music21.__version__)'
 python3 -c \

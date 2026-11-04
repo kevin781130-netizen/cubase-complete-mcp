@@ -47,15 +47,25 @@ STEINBERG_INDEPENDENT_FOLEY_AUDIT=1 dotnet test tests/CubaseCompleteMcp.Server.T
   --results-directory .render-steinberg-proof
 
 echo STEINBERG_NONDEVICE_DOTNET_SUITE_BEGIN
-# Test BOTH solution test projects, not only the earlier 58-case Steinberg
-# name filter. The two host/provider acceptance methods are executed later,
-# with their actual external CLIs and SHA-verified model enabled.
+# Full MCP Server baseline (minus the two real-provider integration cases,
+# which execute separately with actual external dependencies later).
+# Core/Broker/CLI testhost requires Microsoft.WindowsDesktop.App, which is
+# unavailable in Linux Render. Do not report it PASS or install shims.
 FULL_CORE_TRX="rc-core-$(printf '%s' "$HEAD" | cut -c 1-12).trx"
 FULL_SERVER_TRX="rc-server-$(printf '%s' "$HEAD" | cut -c 1-12).trx"
-dotnet test tests/CubaseCompleteMcp.Tests/CubaseCompleteMcp.Tests.csproj \
-  -c Release --no-build --no-restore -p:EnableWindowsTargeting=true \
-  --logger "trx;LogFileName=$FULL_CORE_TRX" \
-  --results-directory .render-steinberg-proof
+CORE_STATE=".render-steinberg-proof/rc-core-runtime-state.json"
+if dotnet --list-runtimes | grep -q '^Microsoft\.WindowsDesktop\.App '; then
+  dotnet test tests/CubaseCompleteMcp.Tests/CubaseCompleteMcp.Tests.csproj \
+    -c Release --no-build --no-restore -p:EnableWindowsTargeting=true \
+    --logger "trx;LogFileName=$FULL_CORE_TRX" \
+    --results-directory .render-steinberg-proof
+  printf '{"status":"PASS_TRX_CORE_RUNTIME_AVAILABLE"}\n' > "$CORE_STATE"
+else
+  # This was confirmed by a real failed testhost launch in the prior RC build:
+  # Framework: Microsoft.WindowsDesktop.App 8.0.0; "No frameworks were found".
+  printf '{"status":"NOT_RUN_WINDOWS_DESKTOP_RUNTIME_REQUIRED","reason":"Core/Broker/CLI testhost requires Microsoft.WindowsDesktop.App 8.x; unavailable in Linux Render. Native Windows runtime required."}\n' > "$CORE_STATE"
+  echo STEINBERG_RC_CORE_WINDOWS_RUNTIME_NOT_RUN
+fi
 dotnet test tests/CubaseCompleteMcp.Server.Tests/CubaseCompleteMcp.Server.Tests.csproj \
   -c Release --no-build --no-restore -p:EnableWindowsTargeting=true \
   --filter 'FullyQualifiedName!~ArrangementRealCli&FullyQualifiedName!~ArrangementRealTempoMcp' \
@@ -264,15 +274,25 @@ def require_complete_trx(path_text, label):
         raise SystemExit(f'FAIL_RC_DOTNET_{label} {successes}/{len(cases)}')
     return {'executed':len(cases),'passed':successes,'failed':0,
             'suite':label,'test_report':path.name}
-rc_core=require_complete_trx(core_trxpath,'CORE_BROKER_CLI')
+core_state_path=Path('.render-steinberg-proof/rc-core-runtime-state.json')
+if not core_state_path.is_file():
+    raise SystemExit('FAIL_CORE_RUNTIME_CLASSIFICATION_MISSING')
+rc_core=json.loads(core_state_path.read_text(encoding='utf-8'))
+if rc_core.get('status')=='PASS_TRX_CORE_RUNTIME_AVAILABLE':
+    rc_core=require_complete_trx(core_trxpath,'CORE_BROKER_CLI')
+elif rc_core.get('status')=='NOT_RUN_WINDOWS_DESKTOP_RUNTIME_REQUIRED':
+    if not rc_core.get('reason') or Path(core_trxpath).is_file():
+        raise SystemExit('FAIL_CORE_WINDOWS_RUNTIME_BOUNDARY_INCONSISTENT')
+else:
+    raise SystemExit('FAIL_UNEXPECTED_CORE_RUNTIME_STATE')
 rc_server=require_complete_trx(server_trxpath,'SERVER_EXCLUDING_TWO_REAL_EXTERNAL_CASES')
-print('STEINBERG_RC_FULL_DOTNET_BASELINE_PASS ' +
+print('STEINBERG_RC_FULL_SERVER_PASS_CORE_WINDOWS_BOUNDARY ' +
       json.dumps({'core_broker_cli':rc_core,'server':rc_server}))
 
 report = {
     'status': 'PASS_LINUX_PORTABLE_ONLY',
     'source_head': head,
-    'scope': '.NET Steinberg tests; real CutPilot MP4; real MIDIVOLT MCP CLI; real GrooveMap CLI; Beat This final0 direct and via .NET MCP using synthesized WAV only',
+    'scope': 'Linux .NET full MCP server suite plus Steinberg tests; Core/Broker/CLI WindowsDesktop runtime NOT_RUN; authentic CutPilot/MIDIVOLT/GrooveMap/BeatThis model with synthetic inputs only',
     'independent_python_foley_auditor': 'PASS_FILE_ONLY_PACKAGE_READBACK_AND_SHA_NEGATIVE',
     'independent_python_auditor_mutation_tests': {'executed': 13, 'passed': 13, 'source': 'validated unittest result above'},
     'cutpilot_python_contract_tests': 'PASS_5_OF_5_SIMULATED_SCENE_DETECTOR',

@@ -31,7 +31,7 @@ public sealed class SteinbergFoleyDawprojectTests
         Assert.Equal(60.06, double.Parse(clip.Attribute("time")!.Value, CultureInfo.InvariantCulture), 8);
         Assert.Equal(1.0, double.Parse(clip.Attribute("duration")!.Value, CultureInfo.InvariantCulture), 8);
         Assert.Contains(project.Descendants("Track"), t => (string?)t.Attribute("name") == "FOLEY_DOOR_OPEN");
-        Assert.Single(zip.Entries.Where(x => x.FullName.StartsWith("audio/", StringComparison.Ordinal)));
+        Assert.Single(zip.Entries, x => x.FullName.StartsWith("audio/", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public sealed class SteinbergFoleyDawprojectTests
         Assert.Contains(xml.Descendants("Track"), t => (string?)t.Attribute("name") == "FOLEY_DOOR_OPEN");
         Assert.Contains(xml.Descendants("Track"), t => (string?)t.Attribute("name") == "FOLEY_DOOR_CLOSE");
         Assert.Equal(2, xml.Descendants("Clip").Count());
-        Assert.Single(zip.Entries.Where(x => x.FullName.StartsWith("audio/", StringComparison.Ordinal)));
+        Assert.Single(zip.Entries, x => x.FullName.StartsWith("audio/", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -161,7 +161,7 @@ public sealed class SteinbergFoleyDawprojectTests
                 ["sound_event_timing"] = "NOT_VERIFIED",
                 ["approved_audio_count"] = 1,
                 ["library_root"] = root,
-                ["entries"] = new JsonArray(new JsonObject
+                ["entries"] = new JsonArray { new JsonObject
                 {
                     ["source_event_id"] = "door_open",
                     ["proposed_action_unconfirmed"] = "opening_door",
@@ -179,7 +179,7 @@ public sealed class SteinbergFoleyDawprojectTests
                     ["action_timing_verified"] = false,
                     ["daw_placement_approved"] = false,
                     ["host_action"] = "none"
-                })
+                }}
             };
             File.WriteAllText(Pre, pre.ToJsonString());
             var timing = new JsonObject
@@ -193,7 +193,7 @@ public sealed class SteinbergFoleyDawprojectTests
                     ["fps_numerator"] = 30, ["fps_denominator"] = 1,
                     ["total_frames"] = 6000L, ["timecode_mode"] = "non_drop_frame"
                 },
-                ["assignments"] = new JsonArray(new JsonObject
+                ["assignments"] = new JsonArray { new JsonObject
                 {
                     ["source_event_id"] = "door_open",
                     ["sample_sha256"] = Hash(Wav),
@@ -205,7 +205,7 @@ public sealed class SteinbergFoleyDawprojectTests
                     ["human_confirmed_track"] = true,
                     ["human_confirmed_source_window_to_video_mapping"] = true,
                     ["reviewer_note"] = "Reviewed source-frame mapping and timeline, synthetic offline fixture"
-                })
+                }}
             };
             File.WriteAllText(Timing, timing.ToJsonString());
         }

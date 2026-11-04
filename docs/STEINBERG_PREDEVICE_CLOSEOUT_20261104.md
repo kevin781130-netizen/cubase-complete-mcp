@@ -38,10 +38,25 @@ The `report.json` is a report of specific gates, not a substitute for reading th
 
 **Other non-device capability limits (not proven by the portable gate):**
 
-- GrooveMap requires a correctly installed checkpoint and real source audio; the real authorized model and MIDIVOLT external CLI outputs are not certified end-to-end by this report. Do not infer real external-provider compatibility from source-level adapters.
+- **MIDIVOLT prompt and GrooveMap MIDI Humanize external CLIs have now been executed for real on Render**, at SHA-pinned upstream commits. The actual MIDIVOLT `midivolt-prompt` subprocess is also called by the Steinberg MCP tool. However, GrooveMap `suno` still needs an approved Beat This! checkpoint and real drum-stem inference, which are **NOT_RUN**. Do not mistake synthetic beat-timing context for real Beat This! inference.
 - **Real CutPilot OpenCV decode has passed on an actual encoded synthetic MP4**, with 90 frames, two expected scene boundaries and independent FFprobe checks. Its source is a **CI-only, byte-exact snapshot** of CutPilot `cutpilot/scenes.py` at `c534cd56e8507288b20c1d55fcb5b8d9e8229ea4` (Git blob `2c4fd2e9a931358f3dc2420b82c63c07d2807ce5`), copied through the user's GitHub connector because unauthenticated raw access returned 404. Production MCP still loads separately installed CutPilot, not this test snapshot. **Real-world footage and cut-accuracy validation remain NOT_RUN**; X-CLIP authentic inference was executed separately on a small sample without dataset-level action-recognition metrics.
 - The first Foley feature scope is **door opening/closing candidate suggestions plus manual approval**. It is not generic automatic Foley, automatic sample selection, audio audition, commercial rights verification or DAW host manipulation.
 - Mainline support evidence belongs to Cubase 15; **Cubase 12–14 and Nuendo** must not be marketed as validated simply because DAWproject export succeeds in Linux XML tests.
+
+## Slice 32 — authentic MIDI CLI cross-repo and MCP process evidence (2026-11-04)
+
+The [current Render portable evidence](https://steinberg-dualmode-dotnet-portable.onrender.com/report.json) includes a second, opt-in **real external-provider gate**, enforced in `scripts/verify-steinberg-render.sh`, alongside the previous Foley/CutPilot/XSD tests.
+
+- **GrooveMap:** original repository branch `fix/groovemap-v3-preflight-output-safety-20261102`, pinned HEAD `3b9bc6d5a26212b35c92d91c1fd902061b187440`. Its real `groovemap-next humanize-midi` executable runs from an installed local distribution; no copied/mock provider replaces it.
+- **MIDIVOLT:** original repository branch `work/midivolt-ready-real-machine-20261103`, pinned HEAD `0c23471b7508bc84383b7860fb976a0ab1e9cb73`. Its real `midivolt-prompt` command generates MIDI from a textual request using the **deterministic local engine, NOT an AI/LLM model**.
+- **Steinberg MCP:** an actual `SteinbergModesTools.ArrangeMidi` process call executes the real MIDIVOLT console entrypoint via an isolated **Linux test-only `.exe` launcher shim** (to match the Windows filename contract). A separate one-case TRX records `ArrangementRealCliTests.ArrangementRealCli01_McpActuallyExecutesInstalledMidivoltPromptAndRejectsOverwrite` **1/1 passed**, independently from the **58/58** regular Steinberg tests.
+- **Cross-provider output:** MIDIVOLT generated **168 note events**, including **96 GM drum notes**. The actual GrooveMap MIDI Humanize executable accepted that MIDI and wrote a separate MIDI containing **96 drum events**; original pitch multiplicities and source bytes were preserved, timing/velocity groove transformation observed, and MIDIVOLT refused overwriting an existing output.
+- **Compatibility:** the Render static site is configured with officially supported service environment variable `PYTHON_VERSION=3.13.11`; this matches MIDIVOLT `>=3.11,<3.14` and GrooveMap `>=3.11`. No Python interpreter download override, local workstation Docker or GitHub Actions is needed. The setting is scoped to this Render service, not the Git repository.
+- **Reproducibility:** both source Git HEADs are checked before installing either package. The portable Gate requires the real subprocess test's TRX and independently reads `.render-steinberg-proof/arrangement-real-e2e/report.json`, rejecting mismatched source SHAs, changed source MIDI, missing groove transform or false claims of Beat This! model execution.
+
+**Exact remaining boundaries:** Beat This! licensed checkpoint inference from a real SUNO WAV and its actual `_tempo.mid` / `_drums.mid` / `_timing.json` are `NOT_RUN_NO_APPROVED_CHECKPOINT`; source tempo/groove context in this cross-provider test is deliberately synthetic. Also not run: real Cubase/Nuendo import, Windows-host process execution, live AI model sound quality or commercial license checks. This is a **real CLI interoperability PASS**, not production-ready DAW automation.
+
+Generated non-personal MIDI examples and test context are in the published `arrangement-real-e2e/` directory of the Render static site.
 
 ## Version-pinned evidence and pass criteria
 

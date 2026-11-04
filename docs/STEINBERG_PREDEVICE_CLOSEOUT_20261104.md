@@ -70,6 +70,19 @@ Evidence: [Render portable report](https://steinberg-dualmode-dotnet-portable.on
 
 **Still NOT_RUN:** (1) actual SUNO/live multitrack audio and quantitative beat/downbeat alignment, (2) Cubase/Nuendo Windows host import and real in-DAW timing review, (3) GrooveMap through the **.NET ArrangeTempo external provider command** on Windows (the real GrooveMap pipeline above was invoked directly in cloud Python), (4) commercial rights review for a final product. Do not infer the separate `arrangement-real-e2e` fixture used real Beat This! merely because the independent `beatthis-final0` gate now does.
 
+## Slice 34 — real MCP ArrangeTempo → GrooveMap → Beat This! final0 (2026-11-04)
+
+**Cloud status: PASS (synthetic input only).** Unlike the prior direct Python model test, this slice invokes the actual .NET MCP `SteinbergModesTools.ArrangeTempo` method, which starts the installed **real** GrooveMap `groovemap-next suno` subprocess. The test-only Linux `groovemap-next.exe` wrapper bridges the production Windows-style executable name; the adapter is not mocked.
+
+- Tested source SHA: `25d509b82405ad7c6dc0380568bf3b98c63224e8`; [portable Render evidence](https://steinberg-dualmode-dotnet-portable.onrender.com/report.json), keys `real_steinberg_mcp_arrange_tempo` and `real_steinberg_mcp_tempo_trx`.
+- The same **actual Beat This! final0** pretrained checkpoint is verified by SHA-256 `8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331` before the MCP call. No fabricated checkpoint or inference output.
+- Input: 24-second locally synthesized 120-BPM drum WAV, not real SUNO/commercial music. Real MCP output: `_tempo.mid`, `_drums.mid`, `_timing.json`. The independent Python readback found **48 beats, 48 MIDI tempo events and 95 drum note-on events**; timing metadata identified `CPJKU/beat_this:minimal` and `groovemap-next-timing-v2`.
+- Security: the exact WAV SHA was preserved; `ArrangeTempo` refused an existing output prefix without changing outputs; absent explicit checkpoint was rejected; no stale `.mcp-inflight` lock remained. The model and outputs were checked independently in `scripts/audit_real_mcp_tempo.py`.
+- Mandatory evidence: `ArrangementRealTempoMcpTests.ArrangementRealTempoMcp01_ActualGrooveMapWithFinal0ProducesTempoAndDrumMidi` **1/1 PASS in its own TRX**, checked by the Render Gate. Regular `Steinberg` filter **58/58 PASS** and separate MIDIVOLT real MCP case **1/1 PASS**. Official DAWproject XSD, Foley ZIP negative tests, CutPilot synthetic encoded MP4 and Windows source-contract gates remain required.
+- Source boundaries unchanged: this is a **Linux .NET process-to-real-provider test**, not Cubase UI operation, Windows PowerShell execution, or a host driver test.
+
+**Still NOT_RUN:** real SUNO (or legally supplied full-song) audio and quantitative beat/downbeat accuracy, Windows-native invocation of both CLIs, in-host Cubase/Nuendo import/synchronization, and human assessment of resulting music.
+
 ## Version-pinned evidence and pass criteria
 
 Do not describe this candidate as "all work except the device done" unless every remaining non-device external dependency receives its **own** pinned real-input evidence. The precise accurate milestone is **portable Foley packaging + independent audit ready for real-machine acceptance**, with the other gaps above explicitly scoped.

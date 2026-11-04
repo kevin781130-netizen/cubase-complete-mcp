@@ -182,7 +182,7 @@ class WindowsFoleyEntrypointSourceContract(unittest.TestCase):
         self.assertIn("$report.failure_code='NONE'", s)
         self.assertIn("WINDOWS_POWERSHELL_SYNTHETIC_WAV_HASH_SMPTE_ONLY", s)
         self.assertIn("PASS_WINDOWS_SCRIPT_SELFTEST_ONLY", s)
-        self.assertIn("if ($env:OS -cne 'Windows_NT')", s)
+        self.assertIn("if (-not $isNativeWindows -or $env:OS -cne 'Windows_NT')", s)
         self.assertIn("failure_code=[string]$codes[[string]$report.phase]", s)
 
     def test_native_windows_runtime_cannot_be_spoofed_by_env_os(self):

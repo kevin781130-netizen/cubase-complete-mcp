@@ -30,7 +30,7 @@ python3 -m pip install -q --disable-pip-version-check --no-cache-dir \
 # Render disables implicit uv interpreter downloads. This explicit,
 # isolated cloud test opts into a supported CPython 3.13 interpreter only;
 # network policies remain in force and an inaccessible download fails closed.
-UV_PYTHON_DOWNLOADS=automatic python3 -m uv venv --python 3.13 --seed "$ROOT/python313"
+UV_PYTHON_DOWNLOADS=automatic UV_PYTHON_PREFERENCE=only-managed python3 -m uv venv --python 3.13 --seed "$ROOT/python313"
 python3 -m uv pip install --python "$ROOT/python313/bin/python" \
   -e "$ROOT/MIDIVOLT"
 "$ROOT/python313/bin/python" -c \

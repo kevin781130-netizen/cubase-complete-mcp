@@ -185,6 +185,14 @@ class WindowsFoleyEntrypointSourceContract(unittest.TestCase):
         self.assertIn("if ($env:OS -cne 'Windows_NT')", s)
         self.assertIn("failure_code=[string]$codes[[string]$report.phase]", s)
 
+    def test_native_windows_runtime_cannot_be_spoofed_by_env_os(self):
+        s = self.source
+        self.assertIn("[System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform(", s)
+        self.assertIn("[System.Runtime.InteropServices.OSPlatform]::Windows)", s)
+        self.assertIn("if (-not $isNativeWindows -or $env:OS -cne 'Windows_NT')", s)
+        self.assertIn("BLOCKED_NOT_WINDOWS", s)
+        self.assertIn("PASS_WINDOWS_SCRIPT_SELFTEST_ONLY", s)
+
 
 if __name__ == "__main__":
     unittest.main()

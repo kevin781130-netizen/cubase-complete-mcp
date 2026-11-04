@@ -138,7 +138,11 @@ class WindowsFoleyEntrypointSourceContract(unittest.TestCase):
         s = self.source
         self.assertIn("[switch]$SelfTest", s)
         self.assertIn("if ($SelfTest.IsPresent)", s)
-        self.assertIn("} else {\n    Enter-Stage 'SOURCE_GIT_IDENTITY'", s)
+        self.assertEqual(s.count("Enter-Stage 'SOURCE_GIT_IDENTITY'"), 1)
+        self.assertLess(
+            s.index("Enter-Stage 'SOURCE_GIT_IDENTITY'"),
+            s.index("if ($SelfTest.IsPresent) {", s.index("Enter-Stage 'WINDOWS_HOST'"))
+        )
         self.assertIn("PASS_WINDOWS_SCRIPT_SELFTEST_ONLY", s)
         self.assertIn("cubase_nuendo_import='NOT_RUN'", s)
         self.assertIn("offline_gate='NOT_RUN'", s)
@@ -192,6 +196,20 @@ class WindowsFoleyEntrypointSourceContract(unittest.TestCase):
         self.assertIn("if (-not $isNativeWindows -or $env:OS -cne 'Windows_NT')", s)
         self.assertIn("BLOCKED_NOT_WINDOWS", s)
         self.assertIn("PASS_WINDOWS_SCRIPT_SELFTEST_ONLY", s)
+
+
+    def test_selftest_and_full_gate_are_bound_to_the_same_origin_commit(self):
+        s = self.source
+        self.assertIn("origin_feature_head=''", s)
+        self.assertIn("git -C $root rev-parse --verify refs/remotes/origin/feat/steinberg-dualmode-adapters-20261104", s)
+        self.assertIn("$report.origin_feature_head -cne $report.source_head", s)
+        self.assertIn("Local HEAD differs from origin feature branch", s)
+        self.assertEqual(s.count("Enter-Stage 'SOURCE_GIT_IDENTITY'"), 1)
+        self.assertLess(
+            s.index("Enter-Stage 'SOURCE_GIT_IDENTITY'"),
+            s.index("if ($SelfTest.IsPresent) {", s.index("Enter-Stage 'WINDOWS_HOST'"))
+        )
+        self.assertIn("BLOCKED_DIRTY_TREE", s)
 
 
 if __name__ == "__main__":

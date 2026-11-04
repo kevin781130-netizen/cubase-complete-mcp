@@ -483,6 +483,12 @@ The user-editable `OS` environment variable is **not** sufficient evidence that 
 
 Render/Linux verifies **18 source-level safety contracts**, existing .NET/MCP/XSD regression tests and artifact integrity; it still **cannot run native Windows PowerShell or Cubase/Nuendo**. The next native milestone is to invoke `verify-steinberg-windows-foley.ps1 -SelfTest` from a normal Windows PowerShell session and inspect the newly generated `foley-windows-acceptance.json`. Only that on-device evidence can establish `PASS_WINDOWS_SCRIPT_SELFTEST_ONLY`; Cubase/Nuendo import remains `NOT_RUN` even then. No local Docker or GitHub Actions is required.
 
+## Slice 31 — source SHA provenance shared by both Windows modes
+
+The Windows launcher `verify-steinberg-windows-foley.ps1` now enforces **the same Git provenance check before either `-SelfTest` or the full preimport workflow**. It must run from a clean checkout of `feat/steinberg-dualmode-adapters-20261104`, at a valid 40-character commit SHA, and local `HEAD` must equal the checkout's local `refs/remotes/origin/feat/steinberg-dualmode-adapters-20261104` tracking ref. A dirty, detached, wrong-branch or untracked commit blocks evidence with nonzero exit. The report contains both `source_head` and `origin_feature_head`, making a native selftest attributable to a concrete source revision instead of an unidentified script.
+
+This does **not** fetch or attest the live remote GitHub HEAD at test time; it checks the origin tracking ref available locally (a fresh clone is recommended). `-SelfTest` still avoids .NET restore, NuGet cache, user assets and Cubase/Nuendo, and only returns `PASS_WINDOWS_SCRIPT_SELFTEST_ONLY` after native execution. The Render/Linux gate checks **19 source-level contracts**, not actual Windows script execution. No change to `main`, DAW operation or GitHub Actions.
+
 ## Version and acceptance boundaries
 
 - The **existing** broker/driver was validated on Cubase 15, not Cubase 12–14 or Nuendo. Do not advertise those versions as working until host compatibility and API limitations have been tested.

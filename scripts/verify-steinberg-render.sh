@@ -40,7 +40,7 @@ dotnet build CubaseCompleteMcp.sln -c Release --no-restore \
 
 echo STEINBERG_TEST_BEGIN
 TRX="steinberg-$(printf '%s' "$HEAD" | cut -c 1-12).trx"
-dotnet test tests/CubaseCompleteMcp.Server.Tests/CubaseCompleteMcp.Server.Tests.csproj \
+STEINBERG_INDEPENDENT_FOLEY_AUDIT=1 dotnet test tests/CubaseCompleteMcp.Server.Tests/CubaseCompleteMcp.Server.Tests.csproj \
   -c Release --no-build --no-restore -p:EnableWindowsTargeting=true \
   --filter 'FullyQualifiedName~Steinberg' \
   --logger "trx;LogFileName=$TRX" \
@@ -51,6 +51,9 @@ python3 -m unittest discover -s tests/python -p 'test_cutpilot_foley_provider.py
 
 echo STEINBERG_XCLIP_OFFLINE_CONTRACT_TEST_BEGIN
 python3 -m unittest discover -s tests/python -p 'test_xclip_foley_action_provider.py' -v
+echo STEINBERG_FOLEY_INDEPENDENT_AUDITOR_TEST_BEGIN
+python3 -m unittest discover -s tests/python -p 'test_foley_dawproject_audit.py' -v
+echo STEINBERG_FOLEY_INDEPENDENT_AUDITOR_TESTS_PASS
 echo STEINBERG_WINDOWS_FOLEY_STATIC_SOURCE_CONTRACT_TEST_BEGIN
 python3 -m unittest discover -s tests/python -p 'test_steinberg_windows_foley_entry.py' -v
 
@@ -67,6 +70,8 @@ passed = [e for e in tests if e.get('outcome') == 'Passed']
 required = (
     'SteinbergDawprojectSchemaTests.DAW04_ExportedXmlValidatesAgainstOfficialProjectAndMetadataSchemas',
     'SteinbergDawprojectSchemaTests.DAW05_OfficialProjectSchemaRejectsUnknownXml',
+    'SteinbergFoleyPipelineE2ETests.SteinbergFoleyPipeline01_TwoEventsReachXsdValidHashMatchedDawproject',
+    'SteinbergFoleyPipelineE2ETests.SteinbergFoleyPipeline03_IndependentAuditorRejectsTamperedExportedZip',
 )
 names = [e.get('testName', '') for e in passed]
 missing = [req for req in required if not any(req in name for name in names)]
@@ -75,7 +80,9 @@ if not tests or len(tests) != len(passed) or missing:
 report = {
     'status': 'PASS_LINUX_PORTABLE_ONLY',
     'source_head': head,
-    'scope': '.NET compile, Steinberg MCP tests, pinned DAWproject XSD tests, external CutPilot contract tests with a fake detector',
+    'scope': '.NET compile, XSD, synthetic end-to-end Foley export, independent Python readback and negative ZIP mutation',
+    'independent_python_foley_auditor': 'PASS_FILE_ONLY_PACKAGE_READBACK_AND_SHA_NEGATIVE',
+    'independent_python_auditor_mutation_tests': 'PASS_13_OF_13_OFFLINE',
     'cutpilot_python_contract_tests': 'PASS_5_OF_5_SIMULATED_SCENE_DETECTOR',
     'real_cutpilot_opencv_video': 'NOT_RUN',
     'xclip_python_contract_tests': 'PASS_6_OF_6_SIMULATED_INFERENCE_NO_MODEL_WEIGHTS',

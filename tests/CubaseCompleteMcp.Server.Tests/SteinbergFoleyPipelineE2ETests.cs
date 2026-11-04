@@ -157,7 +157,7 @@ public sealed class SteinbergFoleyPipelineE2ETests
             Assert.Equal("OkDraft", new SteinbergFoleySampleTools().Recommend(
                 modelReport, directory, candidates, max_per_event: 1)["status"]!.GetValue<string>());
             var candidateDocument = JsonNode.Parse(File.ReadAllText(candidates))!;
-            Assert.Equal(2, candidateDocument["event_count"]!.GetValue<int>());
+            Assert.Equal(2, ((JsonArray)candidateDocument["events"]!).Count);
             Assert.Empty((JsonArray)candidateDocument["selected_audio_files"]!);
             foreach (var evt in (JsonArray)candidateDocument["events"]!)
             {

@@ -75,13 +75,33 @@ print('STEINBERG_FOLEY_INDEPENDENT_AUDITOR_TESTS_PASS ' +
       json.dumps({'executed': result.testsRun, 'passed': result.testsRun,
                   'failed': 0, 'errors': 0}))
 PY
+echo STEINBERG_REAL_ARRANGEMENT_EXTERNAL_CLI_BEGIN
+export STEINBERG_ARRANGEMENT_ENV_ROOT
+STEINBERG_ARRANGEMENT_ENV_ROOT="$(mktemp -d /tmp/steinberg-arrangement-XXXXXX)"
+trap 'rm -rf "$STEINBERG_ARRANGEMENT_ENV_ROOT"' EXIT
+# Two source repos are cloned read-only at exact authorized Git SHA;
+# Python 3.13 is isolated for MIDIVOLT; GrooveMap runs on Render Python.
+source scripts/setup_arrangement_real_clis.sh
+ARR_TRX="arrangement-real-$(printf '%s' "$HEAD" | cut -c 1-12).trx"
+dotnet test tests/CubaseCompleteMcp.Server.Tests/CubaseCompleteMcp.Server.Tests.csproj \
+  -c Release --no-build --no-restore -p:EnableWindowsTargeting=true \
+  --filter 'FullyQualifiedName~ArrangementRealCli' \
+  --logger "trx;LogFileName=$ARR_TRX" \
+  --results-directory .render-steinberg-proof
+
+mkdir -p .render-steinberg-proof/arrangement-real-e2e
+python3 scripts/verify_arrangement_real_clis.py \
+  --midivolt-exe "$STEINBERG_MIDIVOLT_EXE" \
+  --groovemap-exe "$STEINBERG_GROOVEMAP_EXE" \
+  --output-dir .render-steinberg-proof/arrangement-real-e2e
+echo STEINBERG_REAL_ARRANGEMENT_EXTERNAL_CLI_COMPLETE
 echo STEINBERG_WINDOWS_FOLEY_STATIC_SOURCE_CONTRACT_TEST_BEGIN
 python3 -m unittest discover -s tests/python -p 'test_steinberg_windows_foley_entry.py' -v
 
-python3 - "$HEAD" ".render-steinberg-proof/$TRX" <<'PY'
+python3 - "$HEAD" ".render-steinberg-proof/$TRX" ".render-steinberg-proof/$ARR_TRX" <<'PY'
 import json, sys, xml.etree.ElementTree as ET
 from pathlib import Path
-head, trxpath = sys.argv[1:]
+head, trxpath, real_trxpath = sys.argv[1:]
 path = Path(trxpath)
 if not path.is_file():
     raise SystemExit('FAIL_NO_TRX')
@@ -108,15 +128,38 @@ names = [e.get('testName', '') for e in passed]
 missing = [req for req in required if not any(req in name for name in names)]
 if not tests or len(tests) != len(passed) or missing:
     raise SystemExit(f'FAIL_TRX_GATE {len(passed)}/{len(tests)} missing={missing}')
+real_path=Path('.render-steinberg-proof/arrangement-real-e2e/report.json')
+if not real_path.is_file():
+    raise SystemExit('FAIL_NO_EXTERNAL_ARRANGEMENT_CLI_EVIDENCE')
+arrangement=json.loads(real_path.read_text(encoding='utf-8'))
+if (arrangement.get('status') != 'PASS_REAL_EXTERNAL_CLI_MIDIVOLT_TO_GROOVEMAP_HUMANIZE_ONLY'
+        or arrangement.get('midivolt_source_head') != '0c23471b7508bc84383b7860fb976a0ab1e9cb73'
+        or arrangement.get('groovemap_source_head') != '3b9bc6d5a26212b35c92d91c1fd902061b187440'
+        or arrangement.get('midivolt_original_unchanged') is not True
+        or arrangement.get('groovemap_real_humanize_midi_cli') is not True
+        or arrangement.get('groovemap_real_beat_this_inference') != 'NOT_RUN_NO_APPROVED_CHECKPOINT'):
+    raise SystemExit('FAIL_REAL_ARRANGEMENT_CLI_CONTRACT')
+real_trx=Path(real_trxpath)
+if not real_trx.is_file():
+    raise SystemExit('FAIL_NO_MCP_EXTERNAL_PROVIDER_TRX')
+arr_root=ET.parse(real_trx).getroot()
+arr_results=[e for e in arr_root.iter() if e.tag.rsplit('}',1)[-1]=='UnitTestResult']
+if (len(arr_results)!=1 or arr_results[0].get('outcome')!='Passed'
+        or 'ArrangementRealCli01_McpActuallyExecutesInstalledMidivoltPromptAndRejectsOverwrite'
+        not in arr_results[0].get('testName','')):
+    raise SystemExit('FAIL_REAL_MCP_EXTERNAL_PROVIDER_TRX')
+
 report = {
     'status': 'PASS_LINUX_PORTABLE_ONLY',
     'source_head': head,
-    'scope': '.NET compile, XSD, synthetic end-to-end Foley export, independent Python readback and negative ZIP mutation',
+    'scope': '.NET Steinberg tests, real CutPilot MP4, real MIDIVOLT MCP CLI, real GrooveMap MIDI humanize; Beat This checkpoint NOT_RUN',
     'independent_python_foley_auditor': 'PASS_FILE_ONLY_PACKAGE_READBACK_AND_SHA_NEGATIVE',
     'independent_python_auditor_mutation_tests': {'executed': 13, 'passed': 13, 'source': 'validated unittest result above'},
     'cutpilot_python_contract_tests': 'PASS_5_OF_5_SIMULATED_SCENE_DETECTOR',
     'real_cutpilot_opencv_video': 'PASS_DECODED_SYNTHETIC_MP4_ONLY',
     'real_cutpilot_video_evidence': cutpilot_result,
+    'real_external_arrangement_cli': arrangement,
+    'real_external_arrangement_mcp_execution': 'PASS_ONE_REAL_MIDIVOLT_PROVIDER_PROCESS',
     'xclip_python_contract_tests': 'PASS_6_OF_6_SIMULATED_INFERENCE_NO_MODEL_WEIGHTS',
     'real_xclip_pretrained_weights_inference': 'NOT_RUN',
     'executed_tests': len(tests),

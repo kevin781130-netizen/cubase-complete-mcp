@@ -263,6 +263,9 @@ public sealed class SteinbergFoleyPipelineE2ETests
             BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(34, 2), 16);
             "data"u8.CopyTo(bytes.AsSpan(36, 4));
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(40, 4), 16000);
+            // Give the two silent fixtures different content hashes to verify ZIP media count.
+            if (Path.GetFileName(path).Contains("close", StringComparison.OrdinalIgnoreCase))
+                bytes[128] = 0x37;
             File.WriteAllBytes(path, bytes);
         }
 

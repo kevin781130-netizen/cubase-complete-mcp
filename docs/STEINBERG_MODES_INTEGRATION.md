@@ -477,6 +477,12 @@ Without `-SelfTest`, the original full behavior **remains unchanged**: clean nam
 
 The Render Linux job runs **17 source-level safety contracts** and the existing portable .NET tests; it **does not** prove native Windows execution. A `PASS_WINDOWS_SCRIPT_SELFTEST_ONLY` can only be claimed after an actual Windows run of this new switch and its evidence.
 
+## Slice 30 — native OS attestation before Windows selftest
+
+The user-editable `OS` environment variable is **not** sufficient evidence that a process runs on Windows. The `-SelfTest` and regular preflight both now require `System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(OSPlatform.Windows)` **and** `OS=Windows_NT`. This explicitly blocks a Linux PowerShell run with a spoofed environment variable from claiming `PASS_WINDOWS_SCRIPT_SELFTEST_ONLY`.
+
+Render/Linux verifies **18 source-level safety contracts**, existing .NET/MCP/XSD regression tests and artifact integrity; it still **cannot run native Windows PowerShell or Cubase/Nuendo**. The next native milestone is to invoke `verify-steinberg-windows-foley.ps1 -SelfTest` from a normal Windows PowerShell session and inspect the newly generated `foley-windows-acceptance.json`. Only that on-device evidence can establish `PASS_WINDOWS_SCRIPT_SELFTEST_ONLY`; Cubase/Nuendo import remains `NOT_RUN` even then. No local Docker or GitHub Actions is required.
+
 ## Version and acceptance boundaries
 
 - The **existing** broker/driver was validated on Cubase 15, not Cubase 12–14 or Nuendo. Do not advertise those versions as working until host compatibility and API limitations have been tested.

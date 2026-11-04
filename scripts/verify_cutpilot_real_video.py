@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Actual OpenCV video decoder/scene-detector integration smoke with synthetic encoded MP4.
-Loads CutPilot scenes.py from a pinned immutable upstream Git revision and checks
+Loads a connector-verified CutPilot scenes.py CI snapshot at a pinned Git revision and checks
 the Git blob SHA. Does NOT establish event recognition or camera footage quality.
 No CutPilot code is copied into this repository, and no DAW is accessed.
 """
@@ -14,7 +14,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import urllib.request
 from pathlib import Path
 
 CUTPILOT_HEAD = "c534cd56e8507288b20c1d55fcb5b8d9e8229ea4"
@@ -38,12 +37,15 @@ def checked_run(argv: list[str], *, timeout: int = 45) -> subprocess.CompletedPr
 
 
 def download_exact_scenes(destination: Path) -> None:
-    req = urllib.request.Request(
-        CUTPILOT_SOURCE, headers={"User-Agent": "Steinberg-Portable-Foley-E2E/1"}
-    )
-    with urllib.request.urlopen(req, timeout=25) as response:
-        source = response.read(96 * 1024 + 1)
-    if not source or len(source) > 96 * 1024:
+    # The original CutPilot repository is accessible through the user's
+    # connected GitHub account but unauthenticated raw requests returned 404.
+    # CI therefore carries a byte-for-byte, hash-checked single-file snapshot.
+    # This file is test-only, never imported by the production MCP adapter.
+    snapshot = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "cutpilot-scenes-c534cd56.py"
+    if not snapshot.is_file() or snapshot.is_symlink() or snapshot.stat().st_size > 96 * 1024:
+        raise RuntimeError("PINNED_CUTPILOT_FIXTURE_MISSING_OR_UNSAFE")
+    source = snapshot.read_bytes()
+    if not source:
         raise RuntimeError("CUTPILOT_SOURCE_SIZE_INVALID")
     git_blob = hashlib.sha1(
         b"blob " + str(len(source)).encode("ascii") + b"\0" + source
@@ -176,6 +178,7 @@ def verify(ffprobe: Path, output: Path) -> dict:
         result = {
             "status": "PASS_REAL_OPENCV_CUTPILOT_DECODED_SYNTHETIC_MP4_ONLY",
             "cutpilot_source_commit": CUTPILOT_HEAD,
+            "cutpilot_source_delivery": "CI_ONLY_VERIFIED_ORIGINAL_FILE_SNAPSHOT",
             "cutpilot_scenes_git_blob_verified": CUTPILOT_SCENES_BLOB,
             "opencv_version": cv_version,
             "ffprobe_executable": str(ffprobe),
@@ -208,7 +211,7 @@ def main() -> int:
     try:
         evidence = verify(Path(ffprobe).resolve(), Path(args.output).resolve())
     except (RuntimeError, OSError, subprocess.SubprocessError, ValueError,
-            json.JSONDecodeError, urllib.error.URLError) as exc:
+            json.JSONDecodeError) as exc:
         print("CUTPILOT_REAL_VIDEO_GATE_FAILED: " + str(exc), file=sys.stderr)
         return 2
     print("STEINBERG_REAL_CUTPILOT_SCENE_PASS " + json.dumps(evidence, sort_keys=True))

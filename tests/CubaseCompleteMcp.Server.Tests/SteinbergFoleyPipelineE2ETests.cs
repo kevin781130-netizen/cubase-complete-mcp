@@ -160,7 +160,11 @@ public sealed class SteinbergFoleyPipelineE2ETests
             Assert.Equal(2, candidateDocument["event_count"]!.GetValue<int>());
             Assert.Empty((JsonArray)candidateDocument["selected_audio_files"]!);
             foreach (var evt in (JsonArray)candidateDocument["events"]!)
-                Assert.False(evt!["suggested_candidates"]![0]!["commercial_rights_cleared"]!.GetValue<bool>());
+            {
+                var picks = evt!["suggested_candidates"] as JsonArray;
+                Assert.True(picks is { Count: > 0 }, "No candidate for event: " + evt.ToJsonString());
+                Assert.False(picks[0]!["commercial_rights_cleared"]!.GetValue<bool>());
+            }
 
             var review = Path.Combine(directory, "sample-review.json");
             var approvals = new SteinbergFoleyApprovalTools();

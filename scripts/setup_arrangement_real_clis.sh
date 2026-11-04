@@ -27,7 +27,10 @@ echo STEINBERG_ARRANGEMENT_REAL_DEPENDENCIES_BEGIN
 python3 -m pip install -q --disable-pip-version-check --no-cache-dir \
   -e "$ROOT/GrooveMap/groovemap_next" uv==0.9.17
 
-python3 -m uv venv --python 3.13 --seed "$ROOT/python313"
+# Render disables implicit uv interpreter downloads. This explicit,
+# isolated cloud test opts into a supported CPython 3.13 interpreter only;
+# network policies remain in force and an inaccessible download fails closed.
+UV_PYTHON_DOWNLOADS=automatic python3 -m uv venv --python 3.13 --seed "$ROOT/python313"
 python3 -m uv pip install --python "$ROOT/python313/bin/python" \
   -e "$ROOT/MIDIVOLT"
 "$ROOT/python313/bin/python" -c \
